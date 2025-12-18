@@ -1,13 +1,14 @@
 use std::{
     iter::Sum,
     ops::{Add, Div, Mul, Sub},
+    thread::current,
 };
 
 use image::{ImageBuffer, Rgb};
 fn main() {
     println!("Hello, world!");
     let p0 = Vec2 { x: 0.0, y: 0.0 };
-    let p1 = Vec2 { x: 256.0, y: 256.0 };
+    let p1 = Vec2 { x: 0.0, y: 256.0 };
     let p2 = Vec2 { x: 512.0, y: 512.0 };
     let qbc = QBezierCurve {
         points: [p0, p1, p2],
@@ -75,7 +76,7 @@ fn is_linear(curve: &QBezierCurve) -> bool {
     let slope_01 = (p1.y - p0.y) / (p1.x - p0.x);
     let slope_12 = (p2.y - p1.y) / (p2.x - p1.x);
     if slope_01 == slope_12 {
-        true
+        return true;
     }
     false
 }
@@ -99,7 +100,7 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
                 let c = p0 + (p2 - p0) * clamped_t;
                 println!("{}", (pos - c).magnitude());
 
-                plot(img, x, y, (pos - c).magnitude() / 512.0);
+                plot(img, x, y, (pos - c).magnitude() / 255.0);
             }
         }
     } else {
@@ -157,11 +158,50 @@ impl Add for Vec2 {
 }
 impl Mul for Vec2 {
     fn mul(self, rhs: Self) -> Self::Output {
-        (self.x * rhs.x) + (self.y + rhs.y)
+        (self.x * rhs.x) + (self.y * rhs.y)
     }
     type Output = f32;
 }
+struct Polynomial {
+    coefficients: Vec<f32>,
+    degree: usize,
+}
+impl Polynomial {
+    fn evaluate(&mut self) {}
+    fn mul() {}
+    fn div() {}
+    fn add() {}
+    fn sub(&mut self, rhs: Self) {
+        //this just reduces down a -1 distribution problem and then invoking add on the reslt
+    }
+    fn derirative(&mut self) -> Self {
+        Self {
+            coefficients: [],
+            degree: 0,
+        }
+    }
+}
 
+fn evaluate_polynomial(x: f32, function: &Polynomial) -> f32 {
+    let mut total_value = 0.0;
+    let mut current_degree = function.degree;
+    for coefficient in &function.coefficients {
+        let term = x.powi(current_degree as i32); // x^current_degree
+        total_value += term * coefficient; // Add term to total_value
+        current_degree -= 1; // Decrease degree for the next term
+    }
+    total_value
+}
+fn bisection_method(a: Polynomial, eta: f32) -> Option<Vec<f32>> {
+    //eta is defined as the small value
+    let mut x = 0;
+    //determine the best guess for this prior to computation
+    let mut h = 0;
+    while h.abs() >= eta {
+        h = a.evaluate() / a.derirative();
+    }
+    None
+}
 //problem trying to solve :
 //find the distance of a given point from a contour/line segment
 //this distance must have a sign value indicating inside or outside of the shape
@@ -172,4 +212,4 @@ impl Mul for Vec2 {
 //to solve for the min distance of a cubic bezier curve from a given point, solve its derirative
 //t is the value on the curve that yields the min dist from a given point to the curve
 //some form of ray marching or analytically solve the polynomial
-//
+//t
