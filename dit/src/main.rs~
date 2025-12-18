@@ -166,6 +166,37 @@ struct Polynomial {
     coefficients: Vec<f32>,
     degree: usize,
 }
+impl Polynomial {
+    fn evaluate(&mut self) {}
+    fn mul() {}
+    fn div() {}
+    fn add() {}
+    fn sub(&mut self, rhs: Self) {
+        //this just reduces down a -1 distribution problem and then invoking add on the reslt
+    }
+    fn derirative(&mut self) -> Self {
+        if self.degree == 0 {
+            return Self {
+                coefficients: vec![0.0],
+                degree: 0,
+            };
+        }
+        let mut current_degree = self.degree;
+        let mut new_coefficients = vec![];
+        for i in self.coefficients {
+            if current_degree == 0 {
+                break;
+            }
+            new_coefficients.push(current_degree as f32 * i);
+            current_degree - 1;
+        }
+        Self {
+            coefficients: new_coefficients,
+            degree: self.degree - 1,
+        }
+    }
+}
+
 fn evaluate_polynomial(x: f32, function: &Polynomial) -> f32 {
     let mut total_value = 0.0;
     let mut current_degree = function.degree;
@@ -176,8 +207,12 @@ fn evaluate_polynomial(x: f32, function: &Polynomial) -> f32 {
     }
     total_value
 }
-fn bisection_method(a: Polynomial) -> Option<Vec<f32>> {
-    //
+fn bisection_method(a: Polynomial, eta: f32) -> Option<Vec<f32>> {
+    //eta is defined as the small value
+    let mut x = 0;
+    //determine the best guess for this prior to computation
+    let mut h: f32 = 0.0;
+    while h.abs() >= eta {}
     None
 }
 //problem trying to solve :

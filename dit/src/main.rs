@@ -172,12 +172,28 @@ impl Polynomial {
     fn div() {}
     fn add() {}
     fn sub(&mut self, rhs: Self) {
+
         //this just reduces down a -1 distribution problem and then invoking add on the reslt
     }
     fn derirative(&mut self) -> Self {
+        if self.degree == 0 {
+            return Self {
+                coefficients: vec![0.0],
+                degree: 0,
+            };
+        }
+        let mut current_degree = self.degree;
+        let mut new_coefficients = vec![];
+        for i in self.coefficients {
+            if current_degree == 0 {
+                break;
+            }
+            new_coefficients.push(current_degree as f32 * i);
+            current_degree - 1;
+        }
         Self {
-            coefficients: [],
-            degree: 0,
+            coefficients: new_coefficients,
+            degree: self.degree - 1,
         }
     }
 }
@@ -196,12 +212,12 @@ fn bisection_method(a: Polynomial, eta: f32) -> Option<Vec<f32>> {
     //eta is defined as the small value
     let mut x = 0;
     //determine the best guess for this prior to computation
-    let mut h = 0;
-    while h.abs() >= eta {
-        h = a.evaluate() / a.derirative();
-    }
+    let mut h: f32 = 0.0;
+    while h.abs() >= eta {}
     None
 }
+use std::arch::x86_64::*;
+
 //problem trying to solve :
 //find the distance of a given point from a contour/line segment
 //this distance must have a sign value indicating inside or outside of the shape
