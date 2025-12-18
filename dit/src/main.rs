@@ -95,6 +95,8 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
                     x: x as f32,
                     y: y as f32,
                 };
+                // a polynomial term can defined as polynomial struct with every other coefficient
+                // set to 0  besides the term value itself, 
                 let t = ((pos - p0) * (p2 - p0)) / (p2 - p0).magnitude().powi(2);
                 let clamped_t = t.min(1.0).max(0.0);
                 let c = p0 + (p2 - p0) * clamped_t;
@@ -104,6 +106,24 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
             }
         }
     } else {
+        for x in 0..512 {
+            for y in 0..512 {
+                let pos = Vec2 {
+                    x: x as f32,
+                    y: y as f32,
+                };
+                let x = Polynomial {
+                    coefficients: [],
+                    degree: 2, 
+                }
+                let xprime = 
+                let ca = p2 - p0;
+                let t0 = clamp(((pos - p0) * ca) / (ca * ca), 0.0, 1.0);
+                let cubic = 
+                let root = newton_method();
+
+            }
+        }
     }
     img.save("output2.png").unwrap();
 }
@@ -167,7 +187,16 @@ struct Polynomial {
     degree: usize,
 }
 impl Polynomial {
-    fn evaluate(&mut self) {}
+    fn evaluate(&self, x: f32) -> f32 {
+        let mut total_value = 0.0;
+        let mut current_degree = self.degree;
+        for coefficient in &self.coefficients {
+            let term = x.powi(current_degree as i32);
+            total_value += term * coefficient;
+            current_degree -= 1;
+        }
+        total_value
+    }
     fn mul() {}
     fn div() {}
     fn add() {}
@@ -175,7 +204,7 @@ impl Polynomial {
 
         //this just reduces down a -1 distribution problem and then invoking add on the reslt
     }
-    fn derirative(&mut self) -> Self {
+    fn derirative(&self) -> Self {
         if self.degree == 0 {
             return Self {
                 coefficients: vec![0.0],
@@ -184,12 +213,12 @@ impl Polynomial {
         }
         let mut current_degree = self.degree;
         let mut new_coefficients = vec![];
-        for i in self.coefficients {
+        for i in &self.coefficients {
             if current_degree == 0 {
                 break;
             }
             new_coefficients.push(current_degree as f32 * i);
-            current_degree - 1;
+            current_degree -= 1;
         }
         Self {
             coefficients: new_coefficients,
@@ -198,16 +227,6 @@ impl Polynomial {
     }
 }
 
-fn evaluate_polynomial(x: f32, function: &Polynomial) -> f32 {
-    let mut total_value = 0.0;
-    let mut current_degree = function.degree;
-    for coefficient in &function.coefficients {
-        let term = x.powi(current_degree as i32); // x^current_degree
-        total_value += term * coefficient; // Add term to total_value
-        current_degree -= 1; // Decrease degree for the next term
-    }
-    total_value
-}
 fn bisection_method(a: Polynomial, eta: f32) -> Option<Vec<f32>> {
     //eta is defined as the small value
     let mut x = 0;
@@ -216,8 +235,23 @@ fn bisection_method(a: Polynomial, eta: f32) -> Option<Vec<f32>> {
     while h.abs() >= eta {}
     None
 }
-use std::arch::x86_64::*;
-
+//basic newton rapshon
+//only works on scalar quantities at a time
+fn newton_method(f: &Polynomial, iterations: usize, init_guess: f32) -> Option<f32> {
+    let mut x = init_guess;
+    let mut h: f32 = 0.0;
+    let f_deriv = &f.derirative();
+    for i in 0..iterations {
+        let f =  &f.evaluate(x);
+        let fprime =  &f_deriv.evaluate(x)  ;
+        x = x - f / fprime;
+    }
+    None
+}
+//ts prob wrong
+fn clamp(value: f32, min: f32, max: f32) -> f32 {
+    value.min(min).max(max)
+}
 //problem trying to solve :
 //find the distance of a given point from a contour/line segment
 //this distance must have a sign value indicating inside or outside of the shape
