@@ -7,9 +7,9 @@ use std::{
 use image::{ImageBuffer, Rgb};
 fn main() {
     println!("Hello, world!");
-    let p0 = Vec2 { x: 0.0, y: 0.0 };
-    let p1 = Vec2 { x: 0.0, y: 256.0 };
-    let p2 = Vec2 { x: 512.0, y: 512.0 };
+    let p0 = Vec2 { x: 1.0, y: 2.0 };
+    let p1 = Vec2 { x: 2.0, y: 0.0 };
+    let p2 = Vec2 { x: 3.0, y: 2.0 };
     let qbc = QBezierCurve {
         points: [p0, p1, p2],
     };
@@ -39,6 +39,33 @@ fn plot(img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, x: i32, y: i32, intensity: f32)
     let b = pixel[2] as f32 + 128.0 * intensity;
 
     *pixel = Rgb([r.min(255.0) as u8, g.min(0.0) as u8, b.min(0.0) as u8]);
+}
+fn plot_graph(img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>, x: i32, y: i32, intensity: f32) {
+    let width = img.width() as i32;
+    let height = img.height() as i32;
+
+    // Move origin to center and flip Y axis
+    let cx = width / 2;
+    let cy = height / 2;
+
+    let img_x = cx + x;
+    let img_y = cy - y;
+
+    if img_x < 0 || img_y < 0 || img_x >= width || img_y >= height {
+        return;
+    }
+
+    let pixel = img.get_pixel_mut(img_x as u32, img_y as u32);
+
+    let r = pixel[0] as f32 + 255.0 * intensity;
+    let g = pixel[1] as f32 + 255.0 * intensity;
+    let b = pixel[2] as f32 + 128.0 * intensity;
+
+    *pixel = Rgb([
+        r.clamp(0.0, 255.0) as u8,
+        g.clamp(0.0, 255.0) as u8,
+        b.clamp(0.0, 255.0) as u8,
+    ]);
 }
 
 fn draw_curve(curve: QBezierCurve, sample_size: u32) {
@@ -84,7 +111,7 @@ fn is_linear(curve: &QBezierCurve) -> bool {
     }
     false
 }
-const SAMPLE_POINTS: usize = 20;
+const SAMPLE_POINTS: usize = 160;
 fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
     //first generalize the curve
     //operates on a single curve qw
@@ -118,13 +145,14 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
         let k2 = (a * b) * 3.0;
         for x in 0..512 {
             for y in 0..512 {
-                let q = Vec2 { x: 123.0, y: 32.0 };
+                let q = Vec2 { x: 0.0, y: 0.0 };
                 let l = c - q;
                 let k1 = (b * b) + (a * (l * 2.0));
                 let k0 = b * l;
                 let cubic = Polynomial {
                     coefficients: vec![k3, k2, k1, k0],
                 };
+                println!("equation: {:?}", cubic);
                 let mut candidate_intervals: Vec<Range> = vec![];
                 let mut i = 0;
                 while i < SAMPLE_POINTS {
@@ -138,6 +166,7 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
                             higher: (i + 1) as f32 / SAMPLE_POINTS as f32,
                         });
                     }
+                    plot_graph(img, i as i32, first as i32, 255.0);
                     i += 1;
                 }
                 break;
@@ -212,7 +241,7 @@ impl Mul for Vec2 {
 struct VectorValuedPolynomial<T: Vector> {
     coefficients: Vec<T>,
 }
-
+#[derive(Debug)]
 struct Polynomial {
     coefficients: Vec<f32>,
 }
