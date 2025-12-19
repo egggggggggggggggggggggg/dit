@@ -1,25 +1,40 @@
+use image::{ImageBuffer, Rgb};
+use rand::prelude::*;
 use std::{
     iter::Sum,
     ops::{Add, Div, Mul, Sub},
     thread::current,
 };
+const HEIGHT: u32 = 512;
+const WIDTH: u32 = 512;
+fn rand_vec2(xmax: f32, xmin: f32, ymax: f32, ymin: f32) -> Vec2 {
+    //change this later to pass in rng instead to avoid creating and destroing rng gen
+    let mut rng = rand::rng();
+    Vec2 {
+        x: rng.random_range(xmin..=xmax),
+        y: rng.random_range(ymin..=ymax),
+    }
+}
 
-use image::{ImageBuffer, Rgb};
 fn main() {
     println!("Hello, world!");
-    let p0 = Vec2 { x: 1.0, y: 2.0 };
-    let p1 = Vec2 { x: 2.0, y: 0.0 };
-    let p2 = Vec2 { x: 3.0, y: 2.0 };
+    let p0 = Vec2 { x: 200.0, y: 200.0 };
+    let p1 = Vec2 { x: 500.0, y: 100.0 };
+    let p2 = Vec2 { x: 500.0, y: 450.0 };
     let qbc = QBezierCurve {
         points: [p0, p1, p2],
     };
+    let p10 = Vec2 { x: 500.0, y: 450.0 };
+    let p11 = Vec2 { x: 300.0, y: 230.0 };
+    let p12 = Vec2 { x: 123.0, y: 66.0 };
+    let qbc2 = QBezierCurve {
+        points: [p10, p11, p12],
+    };
+    let curves = vec![qbc, qbc2];
     let mut img: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::new(512, 512);
+    quadratic_case(curves, &mut img);
     generate_sdf(qbc, &mut img);
     draw_curve(qbc.clone(), 1000);
-}
-struct Position {
-    x: f32,
-    y: f32,
 }
 const EPS64: f64 = 1e-9;
 const ROOT_EPS64: f64 = 1e-7;
@@ -111,7 +126,72 @@ fn is_linear(curve: &QBezierCurve) -> bool {
     }
     false
 }
-const SAMPLE_POINTS: usize = 160;
+const SAMPLE_POINTS: usize = 20;
+//for each point evaluate all the resulting bezier curves for a given glyph
+//take that and run it thru a min_dist ranking algo
+//take the top three and store those  in the rgb component such that the values are out of 255.0
+//smth about padding to prevent bleeding
+//
+//rewrite this in glsl shader code
+fn quadratic_case(curves: Vec<QBezierCurve>, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
+    let height = img.height();
+    let width = img.width();
+    for x in 0..width {
+        for y in 0..height {
+            let q = Vec2 {
+                x: x as f32,
+                y: y as f32,
+            };
+            let mut final_min = f32::MAX;
+            for i in 0..curves.len() - 1 {
+                let curve = &curves[i];
+                let p0 = curve.points[0];
+                let p1 = curve.points[1];
+                let p2 = curve.points[2];
+                let a = p0 - p1 * 2.0 + p2;
+                let b = (p1 - p0) * 2.0;
+                let c = p0;
+                let k3 = (a * a) * 2.0;
+                let k2 = (a * b) * 3.0;
+                let l = c - q;
+                let k1 = (b * b) + (a * (l * 2.0));
+                let k0 = b * l;
+                let cubic = Polynomial {
+                    coefficients: vec![k3, k2, k1, k0],
+                };
+                let mut candidate_intervals: Vec<Range> = vec![];
+                let mut i = 0;
+                let mut roots = vec![0.0, 1.0];
+                while i < SAMPLE_POINTS + 1 {
+                    let first = cubic.eval_horny(i as f32 / SAMPLE_POINTS as f32);
+                    let second = cubic.eval_horny((i + 1) as f32 / SAMPLE_POINTS as f32);
+                    if (first.abs() < EPS)
+                        || (second.abs() < EPS)
+                        || (first.signum() != second.signum())
+                    {
+                        candidate_intervals.push(Range {
+                            lower: i as f32 / SAMPLE_POINTS as f32,
+                            higher: (i as f32 + 1.0) / SAMPLE_POINTS as f32,
+                        })
+                    }
+                    i += 1;
+                }
+                for i in candidate_intervals {
+                    if let Some(root) = bisection(&cubic, i) {
+                        roots.push(root);
+                    }
+                }
+                let min_dist = get_min_dist(p0, p1, p2, q, &roots);
+                if min_dist < final_min {
+                    final_min = min_dist;
+                };
+            }
+            plot(img, x as i32, y as i32, final_min / 400.0);
+        }
+    }
+    img.save("testIMG.png").unwrap();
+}
+
 fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
     //first generalize the curve
     //operates on a single curve qw
@@ -132,50 +212,102 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
                 let clamped_t = t.min(1.0).max(0.0);
                 let c = p0 + (p2 - p0) * clamped_t;
                 println!("{}", (pos - c).magnitude());
-
                 plot(img, x, y, (pos - c).magnitude() / 255.0);
             }
         }
     } else {
         //reduce the curve
-        let a = p0 - (p1 + p2) * 2.0;
+        let a = p0 - p1 * 2.0 + p2;
         let b = (p1 - p0) * 2.0;
         let c = p0;
         let k3 = (a * a) * 2.0;
         let k2 = (a * b) * 3.0;
         for x in 0..512 {
             for y in 0..512 {
-                let q = Vec2 { x: 0.0, y: 0.0 };
+                let q = Vec2 {
+                    x: x as f32,
+                    y: y as f32,
+                };
                 let l = c - q;
                 let k1 = (b * b) + (a * (l * 2.0));
                 let k0 = b * l;
                 let cubic = Polynomial {
                     coefficients: vec![k3, k2, k1, k0],
                 };
-                println!("equation: {:?}", cubic);
                 let mut candidate_intervals: Vec<Range> = vec![];
                 let mut i = 0;
-                while i < SAMPLE_POINTS {
+                let mut roots = vec![0.0, 1.0];
+                while i < SAMPLE_POINTS + 1 {
                     let first = cubic.eval_horny(i as f32 / SAMPLE_POINTS as f32);
                     let second = cubic.eval_horny((i + 1) as f32 / SAMPLE_POINTS as f32);
-                    println!("fst: {}, snd: {}", first, second);
-                    if first != second {
-                        println!("values: {}", i);
+                    if (first.abs() < EPS)
+                        || (second.abs() < EPS)
+                        || (first.signum() != second.signum())
+                    {
                         candidate_intervals.push(Range {
                             lower: i as f32 / SAMPLE_POINTS as f32,
-                            higher: (i + 1) as f32 / SAMPLE_POINTS as f32,
-                        });
+                            higher: (i as f32 + 1.0) / SAMPLE_POINTS as f32,
+                        })
                     }
-                    plot_graph(img, i as i32, first as i32, 255.0);
                     i += 1;
                 }
-                break;
+                for i in candidate_intervals {
+                    if let Some(root) = bisection(&cubic, i) {
+                        roots.push(root);
+                    }
+                }
+                let min_dist = get_min_dist(p0, p1, p2, q, &roots);
+                plot(img, x, y, (min_dist * min_dist.signum()) / 400.0);
             }
-            break;
         }
     }
     img.save("output2.png").unwrap();
 }
+const EPSILON: f32 = 0.01;
+fn get_min_dist(p0: Vec2, p1: Vec2, p2: Vec2, q: Vec2, roots: &[f32]) -> f32 {
+    let mut min_dist = f32::MAX;
+
+    for &t in roots {
+        if t < 0.0 || t > 1.0 {
+            continue;
+        }
+
+        let b = bezier(p0, p1, p2, t);
+        let d = (b - q).magnitude();
+
+        min_dist = min_dist.min(d);
+    }
+
+    min_dist
+}
+
+fn bezier(p0: Vec2, p1: Vec2, p2: Vec2, t: f32) -> Vec2 {
+    let u = 1.0 - t;
+    p0 * (u * u) + p1 * (2.0 * u * t) + p2 * (t * t)
+}
+
+fn bisection(f: &Polynomial, initial_guess: Range) -> Option<f32> {
+    let mut a = initial_guess.lower;
+    let mut b = initial_guess.higher;
+    if f.eval_horny(a) * f.eval_horny(b) >= 0.0 {
+        return None;
+    }
+    let mut c = a;
+    while ((b - a) >= EPSILON) {
+        c = (a + b) / 2.0;
+        let c_value = f.eval_horny(c);
+        if c_value == 0.0 {
+            break;
+        } else if c_value * f.eval_horny(a) < 0.0 {
+            b = c;
+        } else {
+            a = c;
+        }
+    }
+    Some(c)
+}
+fn newton(f: Polynomial) {}
+
 //most likely did my vector stuff wrong
 #[derive(Debug, Clone, Copy)]
 struct Range {
@@ -192,6 +324,9 @@ struct Vec2 {
 impl Vec2 {
     fn magnitude(&self) -> f32 {
         (self.x.powi(2) + self.y.powi(2)).sqrt()
+    }
+    fn dot(&self, rhs: Self) -> f32 {
+        self.x * rhs.x + self.y * rhs.y
     }
 }
 
@@ -294,28 +429,6 @@ impl Mul for Polynomial {
     type Output = Self;
 }
 
-fn bisection_method(a: Polynomial, eta: f32) -> Option<Vec<f32>> {
-    //eta is defined as the small value
-    let mut x = 0;
-    //determine the best guess for this prior to computation
-    let mut h: f32 = 0.0;
-    while h.abs() >= eta {}
-    None
-}
-//basic newton rapshon
-//only works on scalar quantities at a time
-fn newton_method(f: &Polynomial, iterations: usize, init_guess: f32) -> Option<f32> {
-    let mut x = init_guess;
-    let mut h: f32 = 0.0;
-    let f_deriv = &f.derirative();
-    for i in 0..iterations {
-        let f = &f.eval(x);
-        let fprime = &f_deriv.eval(x);
-        x = x - f / fprime;
-    }
-    None
-}
-//ts prob wrong
 fn clamp(value: f32, min: f32, max: f32) -> f32 {
     value.min(min).max(max)
 }
