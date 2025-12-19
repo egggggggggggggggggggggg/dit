@@ -21,6 +21,10 @@ struct Position {
     x: f32,
     y: f32,
 }
+const EPS64: f64 = 1e-9;
+const ROOT_EPS64: f64 = 1e-7;
+const EPS: f32 = 1e-6;
+const ROOT_EPS: f32 = 1e-4;
 #[derive(Clone, Copy)]
 struct QBezierCurve {
     points: [Vec2; 3],
@@ -80,7 +84,7 @@ fn is_linear(curve: &QBezierCurve) -> bool {
     }
     false
 }
-
+const SAMPLE_POINTS: usize = 20;
 fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
     //first generalize the curve
     //operates on a single curve qw
@@ -96,7 +100,7 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
                     y: y as f32,
                 };
                 // a polynomial term can defined as polynomial struct with every other coefficient
-                // set to 0  besides the term value itself, 
+                // set to 0  besides the term value itself,
                 let t = ((pos - p0) * (p2 - p0)) / (p2 - p0).magnitude().powi(2);
                 let clamped_t = t.min(1.0).max(0.0);
                 let c = p0 + (p2 - p0) * clamped_t;
@@ -106,26 +110,48 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
             }
         }
     } else {
+        //reduce the curve
+        let a = p0 - (p1 + p2) * 2.0;
+        let b = (p1 - p0) * 2.0;
+        let c = p0;
+        let k3 = (a * a) * 2.0;
+        let k2 = (a * b) * 3.0;
         for x in 0..512 {
             for y in 0..512 {
-                let pos = Vec2 {
-                    x: x as f32,
-                    y: y as f32,
+                let q = Vec2 { x: 123.0, y: 32.0 };
+                let l = c - q;
+                let k1 = (b * b) + (a * (l * 2.0));
+                let k0 = b * l;
+                let cubic = Polynomial {
+                    coefficients: vec![k3, k2, k1, k0],
                 };
-                let x = Polynomial {
-                    coefficients: [],
-                    degree: 2, 
+                let mut candidate_intervals: Vec<Range> = vec![];
+                let mut i = 0;
+                while i < SAMPLE_POINTS {
+                    let first = cubic.eval_horny(i as f32 / SAMPLE_POINTS as f32);
+                    let second = cubic.eval_horny((i + 1) as f32 / SAMPLE_POINTS as f32);
+                    println!("fst: {}, snd: {}", first, second);
+                    if first != second {
+                        println!("values: {}", i);
+                        candidate_intervals.push(Range {
+                            lower: i as f32 / SAMPLE_POINTS as f32,
+                            higher: (i + 1) as f32 / SAMPLE_POINTS as f32,
+                        });
+                    }
+                    i += 1;
                 }
-                let xprime = 
-                let ca = p2 - p0;
-                let t0 = clamp(((pos - p0) * ca) / (ca * ca), 0.0, 1.0);
-                let cubic = 
-                let root = newton_method();
-
+                break;
             }
+            break;
         }
     }
     img.save("output2.png").unwrap();
+}
+//most likely did my vector stuff wrong
+#[derive(Debug, Clone, Copy)]
+struct Range {
+    lower: f32,
+    higher: f32,
 }
 
 trait Vector {}
@@ -176,20 +202,24 @@ impl Add for Vec2 {
     }
     type Output = Self;
 }
+//dot product
 impl Mul for Vec2 {
     fn mul(self, rhs: Self) -> Self::Output {
         (self.x * rhs.x) + (self.y * rhs.y)
     }
     type Output = f32;
 }
+struct VectorValuedPolynomial<T: Vector> {
+    coefficients: Vec<T>,
+}
+
 struct Polynomial {
     coefficients: Vec<f32>,
-    degree: usize,
 }
 impl Polynomial {
-    fn evaluate(&self, x: f32) -> f32 {
+    fn eval(&self, x: f32) -> f32 {
         let mut total_value = 0.0;
-        let mut current_degree = self.degree;
+        let mut current_degree = self.coefficients.len() - 1;
         for coefficient in &self.coefficients {
             let term = x.powi(current_degree as i32);
             total_value += term * coefficient;
@@ -197,21 +227,16 @@ impl Polynomial {
         }
         total_value
     }
-    fn mul() {}
-    fn div() {}
-    fn add() {}
-    fn sub(&mut self, rhs: Self) {
-
-        //this just reduces down a -1 distribution problem and then invoking add on the reslt
+    fn eval_horny(&self, x: f32) -> f32 {
+        self.coefficients.iter().fold(0.0, |acc, &c| acc * x + c)
     }
     fn derirative(&self) -> Self {
-        if self.degree == 0 {
+        if self.coefficients.len() == 1 {
             return Self {
-                coefficients: vec![0.0],
-                degree: 0,
+                coefficients: vec![],
             };
         }
-        let mut current_degree = self.degree;
+        let mut current_degree = self.coefficients.len() - 1;
         let mut new_coefficients = vec![];
         for i in &self.coefficients {
             if current_degree == 0 {
@@ -222,9 +247,22 @@ impl Polynomial {
         }
         Self {
             coefficients: new_coefficients,
-            degree: self.degree - 1,
         }
     }
+}
+impl Mul for Polynomial {
+    fn mul(self, rhs: Self) -> Self::Output {
+        let mut result = vec![0.0; self.coefficients.len() + rhs.coefficients.len() - 1];
+        for (i, &a) in self.coefficients.iter().enumerate() {
+            for (j, &b) in rhs.coefficients.iter().enumerate() {
+                result[i + j] += a * b;
+            }
+        }
+        Polynomial {
+            coefficients: result,
+        }
+    }
+    type Output = Self;
 }
 
 fn bisection_method(a: Polynomial, eta: f32) -> Option<Vec<f32>> {
@@ -242,8 +280,8 @@ fn newton_method(f: &Polynomial, iterations: usize, init_guess: f32) -> Option<f
     let mut h: f32 = 0.0;
     let f_deriv = &f.derirative();
     for i in 0..iterations {
-        let f =  &f.evaluate(x);
-        let fprime =  &f_deriv.evaluate(x)  ;
+        let f = &f.eval(x);
+        let fprime = &f_deriv.eval(x);
         x = x - f / fprime;
     }
     None
