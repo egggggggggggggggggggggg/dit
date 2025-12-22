@@ -64,6 +64,8 @@ pub fn parse_file(path: &str) -> Result<(), ParseError> {
     return Ok(());
 }
 //parses for a specific unicode range
+//
+
 fn parse_glyf(
     cursor: &mut Cursor,
     info: &TableInfo,
@@ -79,7 +81,8 @@ fn parse_glyf(
         if length == 0 {
             continue;
         }
-        cursor.seek(info.table_offset + start as usize)?;
+        //just throw in the cursor and cache along with the look up function
+        //rewrite this to have more info for parsing
         parse_glyf_block(cursor, info.table_offset + start as usize)?;
     }
     Ok(())

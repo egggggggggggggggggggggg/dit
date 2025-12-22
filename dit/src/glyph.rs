@@ -1,3 +1,5 @@
+use std::{collections::HashMap, hash::Hash, sync::Arc};
+
 use crate::{err::ParseError, read_utils::Cursor};
 use bitflags::bitflags;
 //replace bitflags with own implementation. dont need the whole crate
@@ -33,10 +35,6 @@ bitflags! {
     }
 }
 
-enum Glyph {
-    Composite(Composite),
-    Simple(Simple),
-}
 #[derive(Debug, Clone)]
 struct GlyphHeader {
     number_of_contours: i16,
@@ -48,9 +46,23 @@ struct GlyphHeader {
 #[derive(Debug, Clone)]
 struct Simple {
     header: GlyphHeader,
-    end_points: Vec<u16>,
+    curves: Vec<Vec<BezierCurve>>,
 }
-struct Composite {}
+#[derive(Debug, Clone)]
+struct Composite {
+    tmat: [f32; 4],
+    references: Vec<Arc<Glyph>>,
+}
+#[derive(Debug, Clone)]
+enum Glyph {
+    Simple(Arc<Simple>),
+    Composite(Arc<Composite>),
+}
+type GlyphCache = HashMap<u32, Glyph>;
+pub fn parse_glyfs(glyph_cache: GlyphCache) {
+
+    //parse_glyf_block only gets called when the cache cannot find the glyph inside
+}
 pub fn parse_glyf_block(cursor: &mut Cursor, offset: usize) -> Result<(), ParseError> {
     cursor.seek(offset)?;
     let number_of_contours = cursor.read_i16()?;
@@ -58,8 +70,19 @@ pub fn parse_glyf_block(cursor: &mut Cursor, offset: usize) -> Result<(), ParseE
     let y_min = cursor.read_i16()?;
     let x_max = cursor.read_i16()?;
     let y_max = cursor.read_i16()?;
+    let glyph_header = GlyphHeader {
+        number_of_contours,
+        x_min,
+        y_min,
+        x_max,
+        y_max,
+    };
     if number_of_contours >= 0 {
-        parse_simple(cursor, number_of_contours);
+        let contours = parse_simple(cursor, number_of_contours)?;
+        let glyph = Simple {
+            header: glyph_header,
+            curves: contours,
+        };
     } else {
         println!("This is a COMPOSITE GLYPH SKIPPING");
         parse_composite(cursor);
@@ -67,7 +90,10 @@ pub fn parse_glyf_block(cursor: &mut Cursor, offset: usize) -> Result<(), ParseE
     Ok(())
 }
 
-pub fn parse_simple(cursor: &mut Cursor, contour_num: i16) -> Result<(), ParseError> {
+pub fn parse_simple(
+    cursor: &mut Cursor,
+    contour_num: i16,
+) -> Result<Vec<Vec<BezierCurve>>, ParseError> {
     let mut end_points = Vec::new();
     println!("contour_num: {}", contour_num);
     for _ in 0..contour_num {
@@ -142,11 +168,65 @@ pub fn parse_simple(cursor: &mut Cursor, contour_num: i16) -> Result<(), ParseEr
         x_coordinates, y_coordinates, end_points, flags,
     );
     let mut start = 0;
+    let mut contours = Vec::new();
     for end in end_points {
+        let mut contour = Vec::new();
         let end = end as usize;
+        for i in start..end {
+            contour.push(GlyphPoint {
+                x: x_coordinates[i],
+                y: y_coordinates[i],
+                on_curve_point: flags[i].contains(SimpleGlyphFlags::ON_CURVE_POINT),
+            })
+        }
+        contours.push(contour);
+        start = end + 1;
     }
-    Ok(())
+    let mut curves = Vec::new();
+    for contour in contours {
+        curves.push(curve_from_contour(&contour)?);
+    }
+    Ok(curves)
 }
+//define the case to be linear
+//this case is easier to calculate and render
+//rename this to something else instead
+#[derive(Debug, Clone, Copy)]
+enum BezierCurve {
+    Linear(f32, f32),
+    Quadratic(f32, f32, f32),
+    Cubic(f32, f32, f32, f32),
+}
+
+//change this to vec2 struct later
+fn curve_from_contour(contour: &[GlyphPoint]) -> Result<Vec<BezierCurve>, ParseError> {
+    let mut bezier_curves = Vec::new();
+    let mut i = 0;
+    while i < contour.len() - 1 {
+        let p0 = &contour[i];
+        let p1 = &contour[i + 1];
+        //extract the vector value fromt the contour points,
+        if p0.on_curve_point && p1.on_curve_point {
+            bezier_curves.push(BezierCurve::Linear(0.0, 0.0));
+            i += 2;
+        } else if i + 2 < contour.len() {
+            let p2 = &contour[i + 2];
+            if p0.on_curve_point && !p1.on_curve_point && p2.on_curve_point {
+                bezier_curves.push(BezierCurve::Quadratic(0.0, 0.0, 0.0));
+                i += 2;
+            }
+        } else {
+            return Err(ParseError::UnexpectedEof);
+            //throw an error (random for now)
+        }
+    }
+    Ok(bezier_curves)
+}
+struct SimpleGlyph {
+    header: GlyphHeader,
+    contours: Vec<Vec<BezierCurve>>,
+}
+
 struct GlyphPoint {
     pub x: i16,
     pub y: i16,
