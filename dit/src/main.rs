@@ -1,3 +1,5 @@
+use dit::parse::parse_file;
+
 use image::{ImageBuffer, Rgb};
 use rand::prelude::*;
 use std::{
@@ -17,23 +19,25 @@ fn rand_vec2(xmax: f32, xmin: f32, ymax: f32, ymin: f32) -> Vec2 {
 }
 
 fn main() {
-    println!("Hello, world!");
-    let p0 = Vec2 { x: 200.0, y: 200.0 };
-    let p1 = Vec2 { x: 500.0, y: 100.0 };
-    let p2 = Vec2 { x: 500.0, y: 450.0 };
-    let qbc = QBezierCurve {
-        points: [p0, p1, p2],
-    };
-    let p10 = Vec2 { x: 29.0, y: 41.0 };
-    let p11 = Vec2 { x: 412.0, y: 512.0 };
-    let p12 = Vec2 { x: 0.0, y: 200.0 };
-    let qbc2 = QBezierCurve {
-        points: [p10, p11, p12],
-    };
-    let curves = vec![qbc, qbc2];
-    let mut img: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::new(512, 512);
-    quadratic_case(curves, &mut img);
-    draw_curve(qbc2.clone(), 1000);
+    let path = "../JetBrainsMonoNerdFontMono-Regular.ttf";
+    let _ = parse_file(path);
+    //     println!("Hello, world!");
+    //     let p0 = Vec2 { x: 200.0, y: 200.0 };
+    //     let p1 = Vec2 { x: 500.0, y: 100.0 };
+    //     let p2 = Vec2 { x: 500.0, y: 450.0 };
+    //     let qbc = QBezierCurve {
+    //         points: [p0, p1, p2],
+    //     };
+    //     let p10 = Vec2 { x: 29.0, y: 41.0 };
+    //     let p11 = Vec2 { x: 412.0, y: 512.0 };
+    //     let p12 = Vec2 { x: 0.0, y: 200.0 };
+    //     let qbc2 = QBezierCurve {
+    //         points: [p10, p11, p12],
+    //     };
+    //     let curves = vec![qbc, qbc2];
+    //     let mut img: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::new(512, 512);
+    //     quadratic_case(curves, &mut img);
+    //     draw_curve(qbc2.clone(), 1000);
 }
 const EPS64: f64 = 1e-9;
 const ROOT_EPS64: f64 = 1e-7;
@@ -185,7 +189,7 @@ fn quadratic_case(curves: Vec<QBezierCurve>, img: &mut ImageBuffer<Rgb<u8>, Vec<
                     final_min = min_dist;
                 };
             }
-            plot(img, x as i32, y as i32, final_min / 300.0);
+            plot(img, x as i32, y as i32, final_min / 512.0);
         }
     }
     img.save("testIMG.png").unwrap();
@@ -316,9 +320,9 @@ struct Range {
 
 trait Vector {}
 #[derive(Copy, Clone)]
-struct Vec2 {
-    x: f32,
-    y: f32,
+pub struct Vec2 {
+    pub x: f32,
+    pub y: f32,
 }
 impl Vec2 {
     fn magnitude(&self) -> f32 {
