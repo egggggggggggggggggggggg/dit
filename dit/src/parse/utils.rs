@@ -77,10 +77,6 @@ impl<'a> Cursor<'a> {
         Ok(())
     }
     #[inline(always)]
-    pub fn read_array16() {
-        //do some generic stuff ig
-    }
-    #[inline(always)]
     pub fn position(&self) -> usize {
         self.pos
     }

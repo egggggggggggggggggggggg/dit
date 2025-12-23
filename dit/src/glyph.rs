@@ -69,6 +69,10 @@ pub fn parse_glyf_block(
     let x_min = cursor.read_i16()?;
     let y_min = cursor.read_i16()?;
     let x_max = cursor.read_i16()?;
+    let x_min = cursor.read_i16()?;
+    let y_min = cursor.read_i16()?;
+    let x_max = cursor.read_i16()?;
+    let y_max = cursor.read_i16()?;
     let y_max = cursor.read_i16()?;
     let glyph_header = GlyphHeader {
         number_of_contours,

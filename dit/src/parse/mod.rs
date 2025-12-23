@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut, Range};
 
 pub mod error;
-pub mod glyph;
+pub mod glyf;
 pub mod maxp;
 pub mod table;
 pub mod utils;
