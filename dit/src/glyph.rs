@@ -59,11 +59,11 @@ enum Glyph {
     Composite(Arc<Composite>),
 }
 type GlyphCache = HashMap<u32, Glyph>;
-pub fn parse_glyfs(glyph_cache: GlyphCache) {
-
-    //parse_glyf_block only gets called when the cache cannot find the glyph inside
-}
-pub fn parse_glyf_block(cursor: &mut Cursor, offset: usize) -> Result<(), ParseError> {
+pub fn parse_glyf_block(
+    cursor: &mut Cursor,
+    offset: usize,
+    glyf_cache: GlyphCache,
+) -> Result<(), ParseError> {
     cursor.seek(offset)?;
     let number_of_contours = cursor.read_i16()?;
     let x_min = cursor.read_i16()?;

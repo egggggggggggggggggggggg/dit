@@ -6,9 +6,50 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 use std::result;
+use std::sync::Arc;
 const MAGIC_NUMBER: u32 = 0x5F0F3CF5;
 
+#[derive(Debug)]
+struct TableRecord {
+    pub checksum: u32,
+    pub table_offset: usize,
+    pub length: usize,
+}
+#[derive(Debug)]
+struct Tag([u8; 4]);
+impl std::fmt::Display for Tag {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}",
+            std::str::from_utf8(&self.0).unwrap_or("????").to_string()
+        )
+    }
+}
+pub struct TtfFont<'a> {
+    data: Cursor<'a>,
+    tables: HashMap<[u8; 4], TableRecord>,
+    offsets: Option<Vec<u32>>,
+    maxp: Maxp,
+    glyf_cache: HashMap<u32, Glyph>,
+}
+impl<'a> TtfFont<'a> {}
+enum Glyph {
+    Simple(Arc<Simple>),
+    Composite(Arc<Composite>),
+}
+struct GlyphHeader {}
+struct Simple {
+    glyph_header: GlyphHeader,
+}
+struct Composite {}
+
+//given a list of tables parse them
+pub fn parse_tables() {}
+
 pub fn entry() {}
+pub fn parse_command() {}
+
 pub fn parse_file(path: &str) -> Result<(), ParseError> {
     let mut cursor = match read_file(path) {
         Ok(curs) => curs,
@@ -63,8 +104,12 @@ pub fn parse_file(path: &str) -> Result<(), ParseError> {
     );
     return Ok(());
 }
+
 //parses for a specific unicode range
 //
+fn parse_range() {
+    //get back the gid for the respective groups asked for
+}
 
 fn parse_glyf(
     cursor: &mut Cursor,
@@ -73,6 +118,7 @@ fn parse_glyf(
     offsets: &Vec<u32>,
     cmap: &Vec<CMapGroup>,
 ) -> Result<(), ParseError> {
+    let mut map = HashMap::new();
     for c in range.start..range.end {
         let gid = lookup(cmap, c).unwrap();
         let start = offsets[gid as usize];
@@ -81,9 +127,9 @@ fn parse_glyf(
         if length == 0 {
             continue;
         }
+        map.insert(c, gid);
         //just throw in the cursor and cache along with the look up function
         //rewrite this to have more info for parsing
-        parse_glyf_block(cursor, info.table_offset + start as usize)?;
     }
     Ok(())
 }
@@ -452,7 +498,7 @@ fn parse_maxp(cursor: &mut Cursor, info: &TableInfo) -> Result<Maxp, ParseError>
     let max_points = cursor.read_u16()?;
     let max_contours = cursor.read_u16()?;
     let max_composite_points = cursor.read_u16()?;
-    let max_composite_contours = cursor.read_u16()?;
+    let max_composite_contoursim = cursor.read_u16()?;
     let max_zones = cursor.read_u16()?;
     let max_twilight_points = cursor.read_u16()?;
     let max_storage = cursor.read_u16()?;
@@ -527,8 +573,8 @@ fn parse_header(cursor: &mut Cursor) -> Result<HashMap<[u8; 4], TableInfo>, Pars
     Ok(table_map)
 }
 
-fn read_file(path: &str) -> std::io::Result<Cursor> {
+fn read_file<'a>(path: &'a str) -> std::io::Result<Cursor> {
     let mut data = Vec::new();
     File::open(path)?.read_to_end(&mut data)?;
-    Ok(Cursor::new(data))
+    Ok(Cursor::new(&data))
 }
