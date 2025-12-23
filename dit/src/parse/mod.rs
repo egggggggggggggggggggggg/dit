@@ -1,24 +1,23 @@
 use std::collections::{HashMap, HashSet};
 use std::ops::{Deref, DerefMut, Range};
+use std::sync::Arc;
 
 pub mod error;
 pub mod glyf;
 pub mod maxp;
 pub mod table;
 pub mod utils;
+use self::error::*;
+use crate::parse::glyf::Glyph;
 use crate::parse::maxp::Maxp;
 use crate::parse::table::cmap::{CMapGroup, parse_cmap};
 use crate::parse::table::head::{Head, TableRecord};
-
-use self::error::*;
 use std::fs::File;
 use std::io::Read;
 use utils::Cursor;
 type GlyphID = u32;
-
-pub struct Glyph {}
 pub struct GlyphCache {
-    inner: HashMap<GlyphID, Glyph>,
+    inner: HashMap<GlyphID, Arc<Glyph>>,
 }
 impl GlyphCache {
     pub fn new() -> Self {
@@ -28,7 +27,7 @@ impl GlyphCache {
     }
 }
 impl Deref for GlyphCache {
-    type Target = HashMap<GlyphID, Glyph>;
+    type Target = HashMap<GlyphID, Arc<Glyph>>;
     fn deref(&self) -> &Self::Target {
         &self.inner
     }
