@@ -1,10 +1,10 @@
+use std::ops::Mul;
+
 use image::{ImageBuffer, Rgb};
 use rand::prelude::*;
-use std::{
-    iter::Sum,
-    ops::{Add, Div, Mul, Sub},
-    thread::current,
-};
+
+use crate::math::vec::Vec2;
+
 const HEIGHT: u32 = 512;
 const WIDTH: u32 = 512;
 fn rand_vec2(xmax: f32, xmin: f32, ymax: f32, ymin: f32) -> Vec2 {
@@ -17,7 +17,6 @@ fn rand_vec2(xmax: f32, xmin: f32, ymax: f32, ymin: f32) -> Vec2 {
 }
 
 fn entry() {
-    println!("Hello, world!");
     let p0 = Vec2 { x: 200.0, y: 200.0 };
     let p1 = Vec2 { x: 500.0, y: 100.0 };
     let p2 = Vec2 { x: 500.0, y: 450.0 };
@@ -162,8 +161,8 @@ fn quadratic_case(curves: Vec<QBezierCurve>, img: &mut ImageBuffer<Rgb<u8>, Vec<
                 let mut i = 0;
                 let mut roots = vec![0.0, 1.0];
                 while i < SAMPLE_POINTS + 1 {
-                    let first = cubic.eval_horny(i as f32 / SAMPLE_POINTS as f32);
-                    let second = cubic.eval_horny((i + 1) as f32 / SAMPLE_POINTS as f32);
+                    let first = cubic.eval_horner(i as f32 / SAMPLE_POINTS as f32);
+                    let second = cubic.eval_horner((i + 1) as f32 / SAMPLE_POINTS as f32);
                     if (first.abs() < EPS)
                         || (second.abs() < EPS)
                         || (first.signum() != second.signum())
@@ -205,12 +204,9 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
                     x: x as f32,
                     y: y as f32,
                 };
-                // a polynomial term can defined as polynomial struct with every other coefficient
-                // set to 0  besides the term value itself,
                 let t = ((pos - p0) * (p2 - p0)) / (p2 - p0).magnitude().powi(2);
                 let clamped_t = t.min(1.0).max(0.0);
                 let c = p0 + (p2 - p0) * clamped_t;
-                println!("{}", (pos - c).magnitude());
                 plot(img, x, y, (pos - c).magnitude() / 255.0);
             }
         }
@@ -237,8 +233,8 @@ fn generate_sdf(curve: QBezierCurve, img: &mut ImageBuffer<Rgb<u8>, Vec<u8>>) {
                 let mut i = 0;
                 let mut roots = vec![0.0, 1.0];
                 while i < SAMPLE_POINTS + 1 {
-                    let first = cubic.eval_horny(i as f32 / SAMPLE_POINTS as f32);
-                    let second = cubic.eval_horny((i + 1) as f32 / SAMPLE_POINTS as f32);
+                    let first = cubic.eval_horner(i as f32 / SAMPLE_POINTS as f32);
+                    let second = cubic.eval_horner((i + 1) as f32 / SAMPLE_POINTS as f32);
                     if (first.abs() < EPS)
                         || (second.abs() < EPS)
                         || (first.signum() != second.signum())
@@ -288,16 +284,16 @@ fn bezier(p0: Vec2, p1: Vec2, p2: Vec2, t: f32) -> Vec2 {
 fn bisection(f: &Polynomial, initial_guess: Range) -> Option<f32> {
     let mut a = initial_guess.lower;
     let mut b = initial_guess.higher;
-    if f.eval_horny(a) * f.eval_horny(b) >= 0.0 {
+    if f.eval_horner(a) * f.eval_horner(b) >= 0.0 {
         return None;
     }
     let mut c = a;
     while ((b - a) >= EPSILON) {
         c = (a + b) / 2.0;
-        let c_value = f.eval_horny(c);
+        let c_value = f.eval_horner(c);
         if c_value == 0.0 {
             break;
-        } else if c_value * f.eval_horny(a) < 0.0 {
+        } else if c_value * f.eval_horner(a) < 0.0 {
             b = c;
         } else {
             a = c;
@@ -312,68 +308,6 @@ fn newton(f: Polynomial) {}
 struct Range {
     lower: f32,
     higher: f32,
-}
-
-trait Vector {}
-#[derive(Copy, Clone)]
-pub struct Vec2 {
-    pub x: f32,
-    pub y: f32,
-}
-impl Vec2 {
-    fn magnitude(&self) -> f32 {
-        (self.x.powi(2) + self.y.powi(2)).sqrt()
-    }
-    fn dot(&self, rhs: Self) -> f32 {
-        self.x * rhs.x + self.y * rhs.y
-    }
-}
-
-impl Mul<f32> for Vec2 {
-    fn mul(self, rhs: f32) -> Self::Output {
-        Vec2 {
-            x: self.x * rhs,
-            y: self.y * rhs,
-        }
-    }
-    type Output = Self;
-}
-impl Div<f32> for Vec2 {
-    fn div(self, rhs: f32) -> Self::Output {
-        Vec2 {
-            x: self.x / rhs,
-            y: self.y / rhs,
-        }
-    }
-    type Output = Self;
-}
-impl Sub for Vec2 {
-    fn sub(self, rhs: Self) -> Self::Output {
-        Vec2 {
-            x: self.x - rhs.x,
-            y: self.y - rhs.y,
-        }
-    }
-    type Output = Self;
-}
-impl Add for Vec2 {
-    fn add(self, rhs: Self) -> Self::Output {
-        Vec2 {
-            x: self.x + rhs.x,
-            y: self.y + rhs.y,
-        }
-    }
-    type Output = Self;
-}
-//dot product
-impl Mul for Vec2 {
-    fn mul(self, rhs: Self) -> Self::Output {
-        (self.x * rhs.x) + (self.y * rhs.y)
-    }
-    type Output = f32;
-}
-struct VectorValuedPolynomial<T: Vector> {
-    coefficients: Vec<T>,
 }
 #[derive(Debug)]
 struct Polynomial {
@@ -390,7 +324,7 @@ impl Polynomial {
         }
         total_value
     }
-    fn eval_horny(&self, x: f32) -> f32 {
+    fn eval_horner(&self, x: f32) -> f32 {
         self.coefficients.iter().fold(0.0, |acc, &c| acc * x + c)
     }
     fn derirative(&self) -> Self {

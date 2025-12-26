@@ -22,7 +22,7 @@ pub struct Maxp {
 }
 impl Maxp {
     pub fn new(data: &[u8], tables: &HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
-        let rec = tables.get(b"maxp").ok_or(Error::Test)?;
+        let rec = tables.get(b"maxp").ok_or(Error::TableNotFound)?;
         let mut cursor = Cursor::set(data, rec.table_offset);
         let vers_major = cursor.read_u16()? as u32;
         let vers_minor = cursor.read_u16()? as u32;

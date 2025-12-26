@@ -65,7 +65,7 @@ pub fn parse_cmap(
             format,
         });
     }
-    let chosen = select_best_cmap(&subtables).ok_or(Error::Test)?;
+    let chosen = select_best_cmap(&subtables).ok_or(Error::MalformedCmap)?;
     cursor.seek(rec.table_offset + chosen.offset)?;
     match chosen.format {
         4 => parse_format4(&mut cursor),

@@ -37,7 +37,6 @@ impl Head {
         let minor = cursor.read_u16()?;
         let font_rev_major = cursor.read_u16()? as u32;
         let font_rev_minor = cursor.read_u16()? as u32;
-        //this might be wrong
         let font_revision = (font_rev_minor << 16 | font_rev_major) as f32 / (1 << 16) as f32;
         let checksum = cursor.read_u32()?;
         let magic_number = cursor.read_u32()?;

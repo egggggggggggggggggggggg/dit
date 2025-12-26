@@ -1,50 +1,27 @@
-use std::collections::{HashMap, HashSet};
-use std::ops::{Deref, DerefMut, Range};
+use std::collections::HashMap;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 pub mod error;
-pub mod glyf;
 pub mod maxp;
 pub mod table;
 pub mod utils;
 use self::error::*;
-use crate::parse::glyf::Glyph;
 use crate::parse::maxp::Maxp;
 use crate::parse::table::cmap::{CMapGroup, parse_cmap};
+use crate::parse::table::glyf::*;
 use crate::parse::table::head::{Head, TableRecord};
 use std::fs::File;
 use std::io::Read;
 use utils::Cursor;
-type GlyphID = u32;
-pub struct GlyphCache {
-    inner: HashMap<GlyphID, Arc<Glyph>>,
-}
-impl GlyphCache {
-    pub fn new() -> Self {
-        Self {
-            inner: HashMap::new(),
-        }
-    }
-}
-impl Deref for GlyphCache {
-    type Target = HashMap<GlyphID, Arc<Glyph>>;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-impl DerefMut for GlyphCache {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
-}
+type GlyphID = u16;
 pub struct TtfFont {
     data: Vec<u8>,
     tables: HashMap<[u8; 4], TableRecord>,
-    head: Head,
-    maxp: Maxp,
-    offsets: Vec<u32>,
-    cmap: Vec<CMapGroup>,
-    glyph_cache: GlyphCache,
+    pub head: Head,
+    pub maxp: Maxp,
+    pub cmap: Vec<CMapGroup>,
+    pub glyf: Glyf,
 }
 pub enum Tag {
     Loca,
@@ -54,10 +31,10 @@ pub enum Tag {
 
 impl TtfFont {
     //takes a string for now will switch to smth else
-    pub fn new(path: &str) -> Result<(), Error> {
+    pub fn new(path: &str) -> Result<Self, Error> {
         let mut data = match read_file(path) {
             Ok(data) => data,
-            Err(e) => return Err(Error::Test),
+            Err(_e) => return Err(Error::FileNotRead),
         };
         let mut cursor = Cursor::set(&mut data, 0);
         let tables = parse_header(&mut cursor)?;
@@ -70,20 +47,25 @@ impl TtfFont {
             head.index_to_loc_format,
         )?;
         let cmap = parse_cmap(&data, &tables)?;
-        let glyph_cache = GlyphCache::new();
-        Self {
+        let glyf = Glyf::new(offsets, &tables);
+        println!("finished parsing the required tables");
+        Ok(Self {
             data,
             tables,
             head,
             maxp,
-            offsets,
             cmap,
-            glyph_cache,
-        };
-
-        Ok(())
+            glyf,
+        })
     }
-    fn lookup(&mut self, c: u32) -> Option<u32> {
+    pub fn parse_gid(&mut self, gid: GlyphID) -> Result<Option<&Arc<Glyph>>, Error> {
+        let mut cursor = Cursor::set(&self.data, 0);
+        self.glyf.parse_glyf_block(gid, &mut cursor)?;
+        println!("finished parsing block");
+        let res = self.glyf.get_glyf(gid);
+        Ok(res)
+    }
+    pub fn lookup(&mut self, c: u32) -> Option<u32> {
         for g in &self.cmap {
             if g.start_char <= c && c <= g.end_char {
                 return Some(g.start_glyph + (c - g.start_char));
@@ -91,27 +73,47 @@ impl TtfFont {
         }
         None
     }
-    ///parses a given unicode ranges glyph(any range works)
-    pub fn glyf_unicode_range(a: Range<u32>) {
-        for _ in a {
-            //use the lookup function or smth here
+    pub fn assemble_glyf(&mut self, gid: GlyphID) -> Result<Vec<Vec<BezierCurve>>, Error> {
+        let glyph = self.parse_gid(gid).unwrap().unwrap();
+        let mut stack = vec![(glyph, Transform::identity())];
+        let mut contours = Vec::new();
+        while let Some((branch, transform)) = stack.pop() {
+            match branch.as_ref() {
+                Glyph::Simple(simple) => {
+                    for contour in &simple.contours {
+                        let mut new_contour = Vec::with_capacity(contours.len());
+                        for curve in contour {
+                            new_contour.push(transform_curve(curve, transform))
+                        }
+                        contours.push(new_contour);
+                    }
+                }
+                Glyph::Composite(composite) => {
+                    for component in &composite.components {
+                        stack.push((
+                            &component.reference,
+                            transform.combine(component.transform_data),
+                        ));
+                    }
+                }
+            }
         }
-    }
-    //looks up the glyph and its respective
-    pub fn get_glyph(&mut self, gid: GlyphID) -> Result<&Glyph, Error> {
-        if let Some(entry) = self.glyph_cache.get(&gid) {
-            return Ok(entry);
-        }
-        let start = self.offsets[gid as usize];
-        let end = self.offsets[gid as usize + 1];
-        let length = end - start;
-        if length == 0 {
-            return Err(Error::Test);
-        }
-
-        Err(Error::Test)
+        Ok(contours)
     }
 }
+
+fn transform_curve(curve: &BezierCurve, t: Transform) -> BezierCurve {
+    match *curve {
+        BezierCurve::Linear(p0, p1) => BezierCurve::Linear(t.apply(p0), t.apply(p1)),
+        BezierCurve::Quadratic(p0, p1, p2) => {
+            BezierCurve::Quadratic(t.apply(p0), t.apply(p1), t.apply(p2))
+        }
+        BezierCurve::Cubic(p0, p1, p2, p3) => {
+            BezierCurve::Cubic(t.apply(p0), t.apply(p1), t.apply(p2), t.apply(p3))
+        }
+    }
+}
+
 fn read_file(path: &str) -> std::io::Result<Vec<u8>> {
     let mut data = Vec::new();
     File::open(path)?.read_to_end(&mut data)?;

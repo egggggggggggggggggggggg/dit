@@ -7,7 +7,7 @@ use crate::parse::{
 pub fn parse_format12(cursor: &mut Cursor) -> Result<Vec<CMapGroup>, Error> {
     let format = cursor.read_u16()?;
     if format != 12 {
-        return Err(Error::Test);
+        return Err(Error::WrongFormat);
     }
     let _reserved = cursor.read_u16()?;
     let _length = cursor.read_u32()?;

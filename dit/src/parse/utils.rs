@@ -12,7 +12,6 @@ impl f2_14 {
         f2_14((val * 16384.0).round() as i16)
     }
 }
-
 impl<'a> Cursor<'a> {
     #[inline(always)]
     pub fn set(data: &'a [u8], pos: usize) -> Self {
@@ -43,7 +42,10 @@ impl<'a> Cursor<'a> {
     pub fn read_u64(&mut self) -> Result<u64, ReadError> {
         Ok(u64::from_be_bytes(self.read_bytes()?))
     }
-
+    #[inline(always)]
+    pub fn read_i8(&mut self) -> Result<i8, ReadError> {
+        Ok(i8::from_be_bytes(self.read_bytes()?))
+    }
     #[inline(always)]
     pub fn read_i16(&mut self) -> Result<i16, ReadError> {
         Ok(i16::from_be_bytes(self.read_bytes()?))

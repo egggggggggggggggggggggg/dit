@@ -1,8 +1,5 @@
-pub mod err;
-pub mod fontfile;
-pub mod glyph;
+pub mod atlas;
 pub mod math;
 pub mod parse;
-pub mod parser;
-pub mod read_utils;
+pub mod render;
 pub mod unicode_ranges;
