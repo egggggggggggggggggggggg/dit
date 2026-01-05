@@ -1,0 +1,102 @@
+pub const ENABLE_VALIDATION_LAYER: bool = true;
+use ash::{Entry, ext::debug_utils, vk};
+use std::ffi::{CStr, CString};
+use std::os::raw::{c_char, c_void};
+use winit::raw_window_handle::HasDisplayHandle;
+use winit::window::Window;
+unsafe extern "system" fn vulkan_debug_callback(
+    flag: vk::DebugUtilsMessageSeverityFlagsEXT,
+    typ: vk::DebugUtilsMessageTypeFlagsEXT,
+    p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
+    _: *mut c_void,
+) -> vk::Bool32 {
+    unsafe {
+        use vk::DebugUtilsMessageSeverityFlagsEXT as Flag;
+        let message = CStr::from_ptr((*p_callback_data).p_message);
+        match flag {
+            Flag::VERBOSE => println!("{:?} - {:?}", typ, message),
+            Flag::INFO => println!("{:?} - {:?}", typ, message),
+            Flag::WARNING => println!("{:?} - {:?}", typ, message),
+            _ => println!("{:?} - {:?}", typ, message),
+        }
+        vk::FALSE
+    }
+}
+pub fn create_debug_create_info() -> vk::DebugUtilsMessengerCreateInfoEXT<'static> {
+    vk::DebugUtilsMessengerCreateInfoEXT::default()
+        .flags(vk::DebugUtilsMessengerCreateFlagsEXT::empty())
+        .message_severity(
+            vk::DebugUtilsMessageSeverityFlagsEXT::ERROR
+                | vk::DebugUtilsMessageSeverityFlagsEXT::WARNING
+                | vk::DebugUtilsMessageSeverityFlagsEXT::INFO,
+        )
+        .message_type(
+            vk::DebugUtilsMessageTypeFlagsEXT::GENERAL
+                | vk::DebugUtilsMessageTypeFlagsEXT::VALIDATION
+                | vk::DebugUtilsMessageTypeFlagsEXT::PERFORMANCE,
+        )
+        .pfn_user_callback(Some(vulkan_debug_callback))
+}
+pub fn create_instance(entry: &Entry, window: &Window) -> ash::Instance {
+    let app_name = CString::new("Vulkan Application").unwrap();
+    let engine_name = CString::new("No Engine").unwrap();
+    let app_info = vk::ApplicationInfo::default()
+        .application_name(&app_name.as_c_str())
+        .application_version(vk::make_api_version(0, 0, 1, 0))
+        .engine_name(engine_name.as_c_str())
+        .engine_version(vk::make_api_version(0, 0, 1, 0))
+        .api_version(vk::make_api_version(0, 1, 0, 0));
+    let extension_names =
+        ash_window::enumerate_required_extensions(window.display_handle().unwrap().as_raw())
+            .unwrap();
+    let mut extension_names = extension_names.to_vec();
+    if ENABLE_VALIDATION_LAYER {
+        extension_names.push(debug_utils::NAME.as_ptr());
+    }
+    #[cfg(any(target_os = "macos", target_os = "ios"))]
+    {
+        extension_names.push(ash::khr::portability_enumeration::NAME.as_ptr());
+        extension_names.push(ash::khr::get_physical_device_properties2::NAME.as_ptr());
+    }
+    let (_layer_names, layer_name_ptrs) = get_layer_names_and_pointers();
+    let create_flags = if cfg!(any(target_os = "macos", target_os = "ios")) {
+        vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
+    } else {
+        vk::InstanceCreateFlags::default()
+    };
+    let mut debug_create_info = create_debug_create_info();
+    let mut instance_create_info = vk::InstanceCreateInfo::default()
+        .application_info(&app_info)
+        .enabled_extension_names(&extension_names)
+        .flags(create_flags);
+    if ENABLE_VALIDATION_LAYER {
+        let supported_layers = unsafe { entry.enumerate_instance_layer_properties().unwrap() };
+        for required in REQUIRED_LAYERS.iter() {
+            let found = supported_layers.iter().any(|layer| {
+                let name = unsafe { CStr::from_ptr(layer.layer_name.as_ptr()) }
+                    .to_str()
+                    .unwrap();
+                required == &name
+            });
+            if !found {
+                panic!("Validation layer isn't support: {}, Aborting", required);
+            }
+        }
+        instance_create_info = instance_create_info
+            .enabled_layer_names(&layer_name_ptrs)
+            .push_next(&mut debug_create_info);
+    }
+    unsafe { entry.create_instance(&instance_create_info, None).unwrap() }
+}
+const REQUIRED_LAYERS: [&str; 1] = ["VK_LAYER_KHRONOS_validation"];
+fn get_layer_names_and_pointers() -> (Vec<CString>, Vec<*const c_char>) {
+    let layer_names = REQUIRED_LAYERS
+        .iter()
+        .map(|name| CString::new(*name).unwrap())
+        .collect::<Vec<_>>();
+    let layer_name_ptrs = layer_names
+        .iter()
+        .map(|name| name.as_ptr())
+        .collect::<Vec<_>>();
+    (layer_names, layer_name_ptrs)
+}
