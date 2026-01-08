@@ -1,5 +1,5 @@
 pub const ENABLE_VALIDATION_LAYER: bool = true;
-use ash::{Entry, ext::debug_utils, vk};
+use ash::{Entry, Instance, ext::debug_utils, vk};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
 use winit::raw_window_handle::HasDisplayHandle;
@@ -99,4 +99,20 @@ fn get_layer_names_and_pointers() -> (Vec<CString>, Vec<*const c_char>) {
         .map(|name| name.as_ptr())
         .collect::<Vec<_>>();
     (layer_names, layer_name_ptrs)
+}
+pub fn setup_debug_messenger(
+    entry: &Entry,
+    instance: &Instance,
+) -> Option<(debug_utils::Instance, vk::DebugUtilsMessengerEXT)> {
+    if !ENABLE_VALIDATION_LAYER {
+        return None;
+    }
+    let create_info = create_debug_create_info();
+    let debug_utils = debug_utils::Instance::new(entry, instance);
+    let debug_utils_messenger = unsafe {
+        debug_utils
+            .create_debug_utils_messenger(&create_info, None)
+            .unwrap()
+    };
+    Some((debug_utils, debug_utils_messenger))
 }

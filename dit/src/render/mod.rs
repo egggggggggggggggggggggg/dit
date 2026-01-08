@@ -1,31 +1,25 @@
-use ash::{
-    Device, Entry,
-    ext::debug_utils,
-    khr::{self, surface},
-    vk::{self, ApplicationInfo},
-};
+pub mod context;
 pub mod debug;
+pub mod swapchain;
 pub mod vkcore;
-use crate::render::debug::*;
-use std::{
-    collections::HashSet,
-    ffi::{CStr, CString},
-    os::raw::{c_char, c_void},
-};
+
+use std::collections::HashSet;
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
     event::{ElementState, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
-    raw_window_handle::HasDisplayHandle,
     window::Window,
 };
+
+use crate::render::vkcore::VkApp;
 const WIDTH: u32 = 960;
 const HEIGHT: u32 = 540;
 #[derive(Default)]
 pub struct App {
     pressed_keys: HashSet<KeyCode>,
     window: Option<Window>,
+    vk_app: Option<VkApp>,
 }
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
@@ -53,7 +47,9 @@ impl ApplicationHandler for App {
             WindowEvent::RedrawRequested => {
                 println!("Redraw was requested");
             }
-            WindowEvent::Resized(new_dimensions) => {}
+            WindowEvent::Resized(new_dimensions) => {
+                println!("new dimensions to resize to: {:?}", new_dimensions)
+            }
             WindowEvent::KeyboardInput {
                 device_id,
                 event,
@@ -75,4 +71,3 @@ impl ApplicationHandler for App {
         }
     }
 }
-impl App {}

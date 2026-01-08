@@ -1,12 +1,9 @@
-use dit::{atlas::entry, render::App};
-use std::time::Instant;
-use winit::event_loop::{ControlFlow, EventLoop};
+use dit::{atlas::entry, render::app};
+use std::time::instant;
+use winit::event_loop::{controlflow, eventloop};
 fn main() {
-    //     let start = Instant::now();
+    //     let start = instant::now();
     //     entry();
     //     println!("{:?}", start.elapsed());
-    let event_loop = EventLoop::new().unwrap();
-    event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App::default();
-    event_loop.run_app(&mut app).unwrap();
+    entry();
 }

@@ -4,6 +4,7 @@ use crate::{
     math::vec::Vec2,
     parse::{TtfFont, table::glyf::*},
 };
+
 pub fn entry() {
     let mut ttf = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
     let mut test_img: ImageBuffer<Rgb<u8>, Vec<u8>> = ImageBuffer::new(512, 512);
@@ -66,3 +67,11 @@ pub fn assemble_atlas(
         println!("failed")
     }
 }
+
+//given an array of boxes defined by a height and width find the most efficient way to pack them
+//into a bigger box that minimizes space waste
+//
+//
+//
+//
+//
