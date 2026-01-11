@@ -1,19 +1,20 @@
 #[derive(Debug)]
 pub enum Error {
-    Test,
-    OffsetNotFound,
-    BlockParseFailed,
-    TableNotFound,
-    FileNotRead,
-    MalformedGlyphPoints,
-    WrongFormat,
-    MalformedCmap,
+    Io(std::io::Error),
+    ParseError(ParseError),
+    MissingTable(&'static str),
+    InvalidFormat(&'static str),
+    ReadError(ReadError),
+    Unknown,
 }
 #[derive(Debug)]
-pub enum ParseError {}
+pub enum ParseError {
+    InvalidCmap,
+    MagicNumber,
+}
 impl From<ParseError> for Error {
     fn from(value: ParseError) -> Self {
-        Error::Test
+        Error::ParseError(value)
     }
 }
 #[derive(Debug)]
@@ -23,6 +24,6 @@ pub enum ReadError {
 }
 impl From<ReadError> for Error {
     fn from(value: ReadError) -> Self {
-        Error::Test
+        Error::ReadError(value)
     }
 }

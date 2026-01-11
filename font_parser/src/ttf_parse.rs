@@ -1,40 +1,27 @@
 use std::collections::HashMap;
-use std::ops::{Deref, DerefMut};
+
 use std::sync::Arc;
 
-pub mod error;
-pub mod maxp;
-pub mod table;
-pub mod utils;
-use self::error::*;
-use crate::parse::maxp::Maxp;
-use crate::parse::table::cmap::{CMapGroup, parse_cmap};
-use crate::parse::table::glyf::*;
-use crate::parse::table::head::{Head, TableRecord};
+use crate::cursor::Cursor;
+use crate::error::{Error, ReadError};
+use crate::geometry::{BezierCurve, Transform, transform_curve};
+pub use crate::table::*;
 use std::fs::File;
 use std::io::Read;
-use utils::Cursor;
-type GlyphID = u16;
 pub struct TtfFont {
     data: Vec<u8>,
-    tables: HashMap<[u8; 4], TableRecord>,
+    pub tables: HashMap<[u8; 4], TableRecord>,
     pub head: Head,
     pub maxp: Maxp,
     pub cmap: Vec<CMapGroup>,
     pub glyf: Glyf,
 }
-pub enum Tag {
-    Loca,
-    Cmap,
-    Head,
-}
 
 impl TtfFont {
-    //takes a string for now will switch to smth else
     pub fn new(path: &str) -> Result<Self, Error> {
         let mut data = match read_file(path) {
             Ok(data) => data,
-            Err(_e) => return Err(Error::FileNotRead),
+            Err(e) => return Err(Error::Io(e)),
         };
         let mut cursor = Cursor::set(&mut data, 0);
         let tables = parse_header(&mut cursor)?;
@@ -58,10 +45,10 @@ impl TtfFont {
             glyf,
         })
     }
-    pub fn parse_gid(&mut self, gid: GlyphID) -> Result<Option<&Arc<Glyph>>, Error> {
+    pub fn parse_required() {}
+    pub fn parse_gid(&mut self, gid: GlyphId) -> Result<Option<&Arc<Glyph>>, Error> {
         let mut cursor = Cursor::set(&self.data, 0);
         self.glyf.parse_glyf_block(gid, &mut cursor)?;
-        println!("finished parsing block");
         let res = self.glyf.get_glyf(gid);
         Ok(res)
     }
@@ -73,7 +60,7 @@ impl TtfFont {
         }
         None
     }
-    pub fn assemble_glyf(&mut self, gid: GlyphID) -> Result<Vec<Vec<BezierCurve>>, Error> {
+    pub fn assemble_glyf(&mut self, gid: GlyphId) -> Result<Vec<Vec<BezierCurve>>, Error> {
         let glyph = self.parse_gid(gid).unwrap().unwrap();
         let mut stack = vec![(glyph, Transform::identity())];
         let mut contours = Vec::new();
@@ -101,51 +88,10 @@ impl TtfFont {
         Ok(contours)
     }
 }
-
-fn transform_curve(curve: &BezierCurve, t: Transform) -> BezierCurve {
-    match *curve {
-        BezierCurve::Linear(p0, p1) => BezierCurve::Linear(t.apply(p0), t.apply(p1)),
-        BezierCurve::Quadratic(p0, p1, p2) => {
-            BezierCurve::Quadratic(t.apply(p0), t.apply(p1), t.apply(p2))
-        }
-        BezierCurve::Cubic(p0, p1, p2, p3) => {
-            BezierCurve::Cubic(t.apply(p0), t.apply(p1), t.apply(p2), t.apply(p3))
-        }
-    }
-}
-
 fn read_file(path: &str) -> std::io::Result<Vec<u8>> {
     let mut data = Vec::new();
     File::open(path)?.read_to_end(&mut data)?;
     Ok(data)
-}
-fn parse_loca(
-    data: &[u8],
-    table: &HashMap<[u8; 4], TableRecord>,
-    glyph_count: usize,
-    format: i16,
-) -> Result<Vec<u32>, Error> {
-    let rec = table.get(b"loca").ok_or(Error::Test)?;
-    let mut cursor = Cursor::set(data, rec.table_offset);
-    let mut offsets: Vec<u32> = Vec::new();
-    match format {
-        0 => {
-            let count = glyph_count / 2;
-            for _ in 0..count {
-                let raw = cursor.read_u16()?;
-                offsets.push((raw as u32) * 2);
-            }
-        }
-        1 => {
-            let count = glyph_count / 4;
-            for _ in 0..count {
-                let raw = cursor.read_u32()?;
-                offsets.push(raw);
-            }
-        }
-        _ => return Err(Error::Test),
-    }
-    Ok(offsets)
 }
 fn parse_header(cursor: &mut Cursor) -> Result<HashMap<[u8; 4], TableRecord>, ReadError> {
     let _sfnt_version = cursor.read_u32()?;

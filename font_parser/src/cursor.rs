@@ -1,16 +1,16 @@
-use crate::parse::ReadError;
+use crate::error::ReadError;
 pub struct Cursor<'a> {
     data: &'a [u8],
     pos: usize,
 }
-pub struct f2_14(i16);
-impl f2_14 {
+pub struct F2_14(i16);
+impl F2_14 {
     pub fn to_f32(self) -> f32 {
         self.0 as f32 / 16384.0
     }
-    pub fn from_f32(val: f32) -> Self {
-        f2_14((val * 16384.0).round() as i16)
-    }
+    // pub fn from_f32(val: f32) -> Self {
+    //     F2_14((val * 16384.0).round() as i16)
+    // }
 }
 impl<'a> Cursor<'a> {
     #[inline(always)]
@@ -38,10 +38,10 @@ impl<'a> Cursor<'a> {
     pub fn read_u32(&mut self) -> Result<u32, ReadError> {
         Ok(u32::from_be_bytes(self.read_bytes()?))
     }
-    #[inline(always)]
-    pub fn read_u64(&mut self) -> Result<u64, ReadError> {
-        Ok(u64::from_be_bytes(self.read_bytes()?))
-    }
+    // #[inline(always)]
+    // pub fn read_u64(&mut self) -> Result<u64, ReadError> {
+    //     Ok(u64::from_be_bytes(self.read_bytes()?))
+    // }
     #[inline(always)]
     pub fn read_i8(&mut self) -> Result<i8, ReadError> {
         Ok(i8::from_be_bytes(self.read_bytes()?))
@@ -50,25 +50,21 @@ impl<'a> Cursor<'a> {
     pub fn read_i16(&mut self) -> Result<i16, ReadError> {
         Ok(i16::from_be_bytes(self.read_bytes()?))
     }
-
-    #[inline(always)]
-    pub fn read_i32(&mut self) -> Result<i32, ReadError> {
-        Ok(i32::from_be_bytes(self.read_bytes()?))
-    }
-
+    // #[inline(always)]
+    // pub fn read_i32(&mut self) -> Result<i32, ReadError> {
+    //     Ok(i32::from_be_bytes(self.read_bytes()?))
+    // }
     #[inline(always)]
     pub fn read_i64(&mut self) -> Result<i64, ReadError> {
         Ok(i64::from_be_bytes(self.read_bytes()?))
     }
-
+    // #[inline(always)]
+    // pub fn read_f32(&mut self) -> Result<f32, ReadError> {
+    //     Ok(f32::from_be_bytes(self.read_bytes()?))
+    // }
     #[inline(always)]
-    pub fn read_f32(&mut self) -> Result<f32, ReadError> {
-        Ok(f32::from_be_bytes(self.read_bytes()?))
-    }
-
-    #[inline(always)]
-    pub fn read_f2dot14(&mut self) -> Result<f2_14, ReadError> {
-        Ok(f2_14(i16::from_be_bytes(self.read_bytes()?)))
+    pub fn read_f2dot14(&mut self) -> Result<F2_14, ReadError> {
+        Ok(F2_14(i16::from_be_bytes(self.read_bytes()?)))
     }
     #[inline(always)]
     pub fn seek(&mut self, pos: usize) -> Result<(), ReadError> {

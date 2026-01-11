@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::parse::{error::Error, table::head::TableRecord, utils::Cursor};
+use crate::{error::Error, table::TableRecord, cursor::Cursor};
 
 #[derive(Debug)]
 pub struct Maxp {
@@ -22,7 +22,7 @@ pub struct Maxp {
 }
 impl Maxp {
     pub fn new(data: &[u8], tables: &HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
-        let rec = tables.get(b"maxp").ok_or(Error::TableNotFound)?;
+        let rec = tables.get(b"maxp").ok_or(Error::MissingTable("maxp"))?;
         let mut cursor = Cursor::set(data, rec.table_offset);
         let vers_major = cursor.read_u16()? as u32;
         let vers_minor = cursor.read_u16()? as u32;

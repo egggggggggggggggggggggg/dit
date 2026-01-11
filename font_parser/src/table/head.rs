@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
-use crate::parse::{error::Error, utils::Cursor};
+use crate::{
+    error::{Error, ParseError},
+    table::TableRecord,
+    cursor::Cursor,
+};
 const MAGIC_NUMBER: u32 = 0x5F0F3CF5;
-#[derive(Debug)]
-pub struct TableRecord {
-    pub checksum: u32,
-    pub table_offset: usize,
-    pub length: usize,
-}
 #[derive(Debug)]
 pub struct Head {
     pub major: u16,
@@ -31,7 +29,7 @@ pub struct Head {
 }
 impl Head {
     pub fn new(data: &[u8], tables: &HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
-        let rec = tables.get(b"head").ok_or(Error::Test)?;
+        let rec = tables.get(b"head").ok_or(Error::MissingTable("head"))?;
         let mut cursor = Cursor::set(data, rec.table_offset);
         let major = cursor.read_u16()?;
         let minor = cursor.read_u16()?;
@@ -41,7 +39,7 @@ impl Head {
         let checksum = cursor.read_u32()?;
         let magic_number = cursor.read_u32()?;
         if magic_number != MAGIC_NUMBER {
-            return Err(Error::Test);
+            return Err(Error::ParseError(ParseError::MagicNumber));
         }
         let flags = cursor.read_u16()?;
         let units_per_em = cursor.read_u16()?;

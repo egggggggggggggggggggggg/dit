@@ -1,0 +1,8 @@
+[package]
+name = "atlas_gen"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+font_parser = { path = "../font_parser" }
+image = "0.25.9"

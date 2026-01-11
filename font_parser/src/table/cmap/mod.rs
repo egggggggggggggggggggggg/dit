@@ -1,7 +1,9 @@
 use core::panic;
 use std::collections::HashMap;
 
-use crate::parse::{error::Error, table::head::TableRecord, utils::Cursor};
+use crate::error::ParseError;
+use crate::table::TableRecord;
+use crate::{error::Error, cursor::Cursor};
 
 pub mod format12;
 pub mod format4;
@@ -45,7 +47,7 @@ pub fn parse_cmap(
     data: &[u8],
     tables: &HashMap<[u8; 4], TableRecord>,
 ) -> Result<Vec<CMapGroup>, Error> {
-    let rec = tables.get(b"cmap").ok_or(Error::Test)?;
+    let rec = tables.get(b"cmap").ok_or(Error::MissingTable("cmap"))?;
     let mut cursor = Cursor::set(data, rec.table_offset);
     let version = cursor.read_u16()?;
     let num_tables = cursor.read_u16()?;
@@ -65,7 +67,7 @@ pub fn parse_cmap(
             format,
         });
     }
-    let chosen = select_best_cmap(&subtables).ok_or(Error::MalformedCmap)?;
+    let chosen = select_best_cmap(&subtables).ok_or(ParseError::InvalidCmap)?;
     cursor.seek(rec.table_offset + chosen.offset)?;
     match chosen.format {
         4 => parse_format4(&mut cursor),

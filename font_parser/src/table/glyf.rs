@@ -1,13 +1,10 @@
-use std::{
-    collections::HashMap,
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
-
 use crate::{
-    math::vec::Vec2,
-    parse::{Cursor, GlyphID, error::Error, table::head::TableRecord},
+    cursor::Cursor,
+    error::Error,
+    geometry::{BezierCurve, Transform, Vec2},
+    table::{GlyphId, TableRecord},
 };
+use std::{collections::HashMap, sync::Arc};
 #[derive(Copy, Clone, Debug)]
 enum ComponentFlags {
     ARG_1_AND_2_ARE_WORDS = 0x0001,
@@ -35,33 +32,8 @@ enum SimpleFlags {
     OVERLAP_SIMPLE = 0x40,
     RESERVED = 0x80,
 }
-#[derive(Debug, Clone, Copy)]
-pub enum BezierCurve {
-    Linear(Vec2, Vec2),
-    Quadratic(Vec2, Vec2, Vec2),
-    Cubic(Vec2, Vec2, Vec2, Vec2),
-}
-pub struct GlyphCache {
-    inner: HashMap<GlyphID, Arc<Glyph>>,
-}
-impl GlyphCache {
-    pub fn new() -> Self {
-        Self {
-            inner: HashMap::new(),
-        }
-    }
-}
-impl Deref for GlyphCache {
-    type Target = HashMap<GlyphID, Arc<Glyph>>;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-impl DerefMut for GlyphCache {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
-}
+pub type GlyphCache = HashMap<GlyphId, Arc<Glyph>>;
+
 #[derive(Debug)]
 pub struct SimpleGlyph {
     pub header: GlyphHeader,
@@ -74,61 +46,29 @@ pub struct CompositeGlyph {
 }
 #[derive(Debug, Clone)]
 pub struct GlyphHeader {
-    contour_count: i16,
-    x_min: i16,
-    y_min: i16,
-    x_max: i16,
-    y_max: i16,
+    pub contour_count: i16,
+    pub x_min: i16,
+    pub y_min: i16,
+    pub x_max: i16,
+    pub y_max: i16,
 }
 #[derive(Debug)]
 pub enum Glyph {
     Simple(SimpleGlyph),
     Composite(CompositeGlyph),
 }
-
-#[derive(Debug, Clone, Copy)]
-pub struct Transform {
-    a: f32,
-    b: f32,
-    c: f32,
-    d: f32,
-    dx: f32,
-    dy: f32,
-}
-impl Transform {
-    pub fn identity() -> Self {
-        Self {
-            a: 1.0,
-            b: 0.0,
-            c: 0.0,
-            d: 1.0,
-            dx: 0.0,
-            dy: 0.0,
-        }
-    }
-    #[inline(always)]
-    pub fn apply(&self, p: Vec2) -> Vec2 {
-        Vec2 {
-            x: self.a * p.x + self.b * p.y + self.dx,
-            y: self.c * p.x + self.d * p.y + self.dy,
-        }
-    }
-    #[inline(always)]
-    pub fn combine(self, other: Transform) -> Transform {
-        Transform {
-            a: self.a * other.a + self.b * other.c,
-            b: self.a * other.b + self.b * other.d,
-            c: self.c * other.a + self.d * other.c,
-            d: self.c * other.b + self.d * other.d,
-            dx: self.a * other.dx + self.b * other.dy + self.dx,
-            dy: self.c * other.dx + self.d * other.dy + self.dy,
+impl Glyph {
+    pub fn get_header(&self) -> &GlyphHeader {
+        match self {
+            Self::Simple(simple) => &simple.header,
+            Self::Composite(composite) => &composite.header,
         }
     }
 }
 
 struct UnresolvedComponent {
     flags: u16,
-    gid: GlyphID,
+    gid: GlyphId,
     transform: Transform,
 }
 impl UnresolvedComponent {
@@ -155,10 +95,14 @@ pub struct Glyf {
 }
 impl Glyf {
     pub fn new(offsets: Vec<u32>, record: &HashMap<[u8; 4], TableRecord>) -> Self {
-        let local_offset = record.get(b"glyf").ok_or(Error::Test).unwrap().table_offset;
+        let local_offset = record
+            .get(b"glyf")
+            .ok_or(Error::MissingTable("glyf"))
+            .unwrap()
+            .table_offset;
         Self {
             offsets,
-            glyph_cache: GlyphCache::new(),
+            glyph_cache: GlyphCache::default(),
             local_offset,
         }
     }
@@ -189,10 +133,10 @@ impl Glyf {
         };
         Ok(args)
     }
-    pub fn get_glyf(&mut self, gid: GlyphID) -> Option<&Arc<Glyph>> {
+    pub fn get_glyf(&mut self, gid: GlyphId) -> Option<&Arc<Glyph>> {
         self.glyph_cache.get(&gid)
     }
-    pub fn parse_glyf_block(&mut self, gid: GlyphID, cursor: &mut Cursor) -> Result<(), Error> {
+    pub fn parse_glyf_block(&mut self, gid: GlyphId, cursor: &mut Cursor) -> Result<(), Error> {
         if self.glyph_cache.contains_key(&gid) {
             return Ok(());
         };
@@ -225,11 +169,11 @@ impl Glyf {
         cursor: &mut Cursor,
         glyph_header: GlyphHeader,
     ) -> Result<CompositeGlyph, Error> {
-        let components = self.parse_components(cursor)?;
-        let mut resolved = Vec::new();
-        for i in components {
-            resolved.push(self.resolve_component(i, cursor)?);
-        }
+        let resolved = self
+            .parse_components(cursor)?
+            .into_iter()
+            .map(|c| self.resolve_component(c, cursor))
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(CompositeGlyph {
             header: glyph_header,
             components: resolved,
@@ -246,7 +190,7 @@ impl Glyf {
         if let Some(item) = self.glyph_cache.get(&component.gid) {
             Ok(component.resolve(item.clone()))
         } else {
-            Err(Error::BlockParseFailed)
+            Err(Error::Unknown)
         }
     }
     fn parse_components(&mut self, cursor: &mut Cursor) -> Result<Vec<UnresolvedComponent>, Error> {
@@ -354,7 +298,7 @@ impl Glyf {
         }
         Ok(coords)
     }
-    pub fn get_glyph(&mut self, gid: GlyphID) -> Option<&Arc<Glyph>> {
+    pub fn get_glyph(&mut self, gid: GlyphId) -> Option<&Arc<Glyph>> {
         self.glyph_cache.get(&gid)
     }
 }
@@ -423,12 +367,12 @@ fn curve_from_coords(
         } else if on0 && !on1 {
             let (p2, on2) = expanded[(i + 2) % expanded.len()];
             if !on2 {
-                return Err(Error::MalformedGlyphPoints);
+                return Err(Error::Unknown);
             }
             curves.push(BezierCurve::Quadratic(p0, p1, p2));
             i += 2;
         } else {
-            return Err(Error::MalformedGlyphPoints);
+            return Err(Error::Unknown);
         }
     }
     Ok(curves)

@@ -1,7 +1,7 @@
-use crate::parse::{
+use crate::{
     error::{Error, ParseError},
     table::cmap::CMapGroup,
-    utils::Cursor,
+    cursor::Cursor,
 };
 
 pub fn parse_format4(cursor: &mut Cursor) -> Result<Vec<CMapGroup>, Error> {
