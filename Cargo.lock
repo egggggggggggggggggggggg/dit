@@ -505,6 +505,7 @@ version = "0.1.0"
 dependencies = [
  "ash",
  "ash-window",
+ "atlas_gen",
  "bitflags 2.10.0",
  "font_parser",
  "image",

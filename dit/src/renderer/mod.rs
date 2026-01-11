@@ -12,7 +12,7 @@ use winit::{
     window::Window,
 };
 
-use crate::render::vkcore::VkApp;
+use crate::renderer::vkcore::VkApp;
 const WIDTH: u32 = 960;
 const HEIGHT: u32 = 540;
 #[derive(Default)]
