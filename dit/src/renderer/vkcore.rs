@@ -8,11 +8,24 @@ use ash::{
     khr::{surface, swapchain as khr_swapchain},
     vk,
 };
-use std::ffi::CStr;
+use std::io::Cursor;
+use std::path::Path;
+use std::{ffi::CStr, fs};
 use winit::{
     raw_window_handle::{HasDisplayHandle, HasWindowHandle},
     window::Window,
 };
+
+pub fn load<P: AsRef<Path>>(path: P) -> Cursor<Vec<u8>> {
+    use std::fs::File;
+    use std::io::Read;
+
+    let mut buf = Vec::new();
+    let fullpath = Path::new("assets").join(path);
+    let mut file = File::open(fullpath).unwrap();
+    file.read_to_end(&mut buf).unwrap();
+    Cursor::new(buf)
+}
 pub struct VkApp {}
 
 const WIDTH: u32 = 500;
@@ -58,7 +71,6 @@ impl VkApp {
             Self::create_swapchain_image_views(vk_context.device(), &images, properties);
         let msaa_samples = vk_context.get_max_usable_sample_count();
 
-
         let render_pass = Self::create_render_pass(vk_context.device(), properties, msaa_samples);
     }
     fn pick_physical_device(
@@ -71,13 +83,12 @@ impl VkApp {
             .into_iter()
             .find(|device| Self::is_device_suitable(instance, surface, surface_khr, *device))
             .expect("No suitable physical device.");
-
-        let props = unsafe { instance.get_physical_device_properties(device) };
-        let (graphics, present) = Self::find_queue_families(instance, surface, surface_khr, device);
+        let (graphics, present, transfer) =
+            Self::find_queue_families(instance, surface, surface_khr, device);
         let queue_families_indices = QueueFamiliesIndices {
             graphics_index: graphics.unwrap(),
             present_index: present.unwrap(),
-            transfer_index: None,
+            transfer_index: transfer.unwrap(),
         };
 
         (device, queue_families_indices)
@@ -89,7 +100,8 @@ impl VkApp {
         surface_khr: vk::SurfaceKHR,
         device: vk::PhysicalDevice,
     ) -> bool {
-        let (graphics, present) = Self::find_queue_families(instance, surface, surface_khr, device);
+        let (graphics, present, transfer) =
+            Self::find_queue_families(instance, surface, surface_khr, device);
         let extention_support = Self::check_device_extension_support(instance, device);
         let is_swapchain_adequate = {
             let details = SwapchainSupportDetails::new(device, surface, surface_khr);
@@ -138,15 +150,18 @@ impl VkApp {
         surface: &surface::Instance,
         surface_khr: vk::SurfaceKHR,
         device: vk::PhysicalDevice,
-    ) -> (Option<u32>, Option<u32>) {
+    ) -> (Option<u32>, Option<u32>, Option<u32>) {
         let mut graphics = None;
         let mut present = None;
+        let mut transfer = None;
         let props = unsafe { instance.get_physical_device_queue_family_properties(device) };
         for (index, family) in props.iter().filter(|f| f.queue_count > 0).enumerate() {
             let index = index as u32;
+
             if family.queue_flags.contains(vk::QueueFlags::GRAPHICS) && graphics.is_none() {
                 graphics = Some(index);
             }
+
             let present_support = unsafe {
                 surface
                     .get_physical_device_surface_support(device, index, surface_khr)
@@ -155,11 +170,22 @@ impl VkApp {
             if present_support && present.is_none() {
                 present = Some(index);
             }
-            if graphics.is_some() && present.is_some() {
-                break;
+
+            // Prefer a dedicated transfer queue
+            if family.queue_flags.contains(vk::QueueFlags::TRANSFER)
+                && !family.queue_flags.contains(vk::QueueFlags::GRAPHICS)
+                && !family.queue_flags.contains(vk::QueueFlags::COMPUTE)
+                && transfer.is_none()
+            {
+                transfer = Some(index);
             }
         }
-        (graphics, present)
+
+        // Fallback: use graphics queue for transfer if needed
+        if transfer.is_none() {
+            transfer = graphics;
+        }
+        (graphics, present, transfer)
     }
 
     fn create_logical_device_with_graphics_queue(
@@ -355,13 +381,37 @@ impl VkApp {
 
         unsafe { device.create_render_pass(&render_pass_info, None).unwrap() }
     }
+    fn read_shader_from_file<P: AsRef<std::path::Path>>(path: P) -> Vec<u32> {
+        let mut cursor = load(path);
+        ash::util::read_spv(&mut cursor).unwrap()
+    }
+
+    fn create_shader_module(device: &Device, code: &[u32]) -> vk::ShaderModule {
+        let create_info = vk::ShaderModuleCreateInfo::default().code(code);
+        unsafe { device.create_shader_module(&create_info, None).unwrap() }
+    }
+}
+
+//make sme utils for easy buffer allocation
+
+struct Buffer {
+    buffer: vk::Buffer,
+    device_local_buffer: vk::Buffer,
+    
+}
+impl Buffer {
+    fn allocate() {}
+    ///Called upon when the buffer needs to be resized to accomodate for more daata
+    fn reallocate() {}
+    ///Called when the buffer needs to add more stuff to it
+    fn update(data: &[u8]) {}
 }
 
 #[derive(Clone, Copy)]
 struct QueueFamiliesIndices {
     graphics_index: u32,
     present_index: u32,
-    transfer_index: Option<u32>,
+    transfer_index: u32,
 }
 impl QueueFamiliesIndices {}
 
