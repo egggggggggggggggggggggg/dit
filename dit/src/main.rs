@@ -1,11 +1,12 @@
 use font_parser::ttf_parse::TtfFont;
 fn main() {
-    let font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
-    let atlas = atlas_gen::entry();
+    let res = median(122, 3333, 0);
+    println!("res: {}", res);
 }
-struct Cell {
-    glyph_id: u16,
-    fg_color: [u8; 4],
-    bg_color: [u8; 4],
-    flags: u8,
+
+fn median<T>(a: T, b: T, c: T) -> T
+where
+    T: Ord + Copy,
+{
+    (a.min(b)).max(b.min(c))
 }

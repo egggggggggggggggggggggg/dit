@@ -56,3 +56,30 @@ where
 
     img
 }
+fn draw_msdf_glyph<P>(
+    contour: Vec<Vec<BezierCurve>>,
+    font_size: u16,
+    units_per_em: u16,
+    bounds: &GlyphHeader,
+) -> ImageBuffer<P, Vec<u8>>
+where
+    P: Pixel<Subpixel = u8> + Copy,
+{
+    let scale = font_size as f32 / units_per_em as f32;
+    let width = bounds.x_max - bounds.x_min;
+    let height = bounds.y_max - bounds.y_min;
+    let pixel_width = (width as f32 * scale).ceil().max(1.0) as u32;
+    let pixel_height = (height as f32 * scale).ceil().max(1.0) as u32;
+    let mut img = ImageBuffer::new(pixel_width, pixel_height);
+    let white = *P::from_slice(&[255u8; 3]);
+
+    
+
+    img
+}
+fn classify_corners() {
+
+}
+fn calculate_bbox() {
+    
+}
