@@ -1,8 +1,9 @@
 mod allocator;
 pub mod atlas;
 pub mod math;
+pub mod msdfgen;
 use atlas::*;
-use font_parser::{BezierCurve, GlyphHeader, TtfFont};
+use font_parser::{BezierCurve, GlyphHeader, TtfFont, Vec2};
 use image::{ImageBuffer, Pixel, Rgb, Rgba};
 
 use crate::allocator::ShelfAllocator;
@@ -72,14 +73,21 @@ where
     let pixel_height = (height as f32 * scale).ceil().max(1.0) as u32;
     let mut img = ImageBuffer::new(pixel_width, pixel_height);
     let white = *P::from_slice(&[255u8; 3]);
-
-    
-
+    for x in 0..pixel_width {
+        for y in 0..pixel_height {
+            let mut p = Vec2 {
+                x: (x as f32 + 0.5) / pixel_width as f32,
+                y: (y as f32 + 0.5) / pixel_height as f32,
+            };
+        }
+    }
     img
 }
-fn classify_corners() {
+fn generate_pixel(p: Vec2, shape: &Vec<Vec<BezierCurve>>) {
+    for contour in shape {
+        for curve in contour {}
+    }
+}
 
-}
-fn calculate_bbox() {
-    
-}
+fn classify_corners() {}
+fn calculate_bbox() {}

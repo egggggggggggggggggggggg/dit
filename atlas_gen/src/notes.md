@@ -84,3 +84,78 @@ leads to sharp corners getting rounded
 Another case where two sharp corner edges meet 
 When that happens its random as to whether theres rounding or not
 Depends on grid alignment
+Proves a corner can be partitioned into 8 areas
+Four quadrants = A,B,C,D 
+Prime letter quadrants like A' are the inner curved quadrants
+for a given prime quadrant its value (bool) can be derived from a bool function
+that takes in the quadrants and a random bit r
+n() = not
++ = or 
+for A' its f(a,b,c,d,r) = ab + ac + bcd + r(an(bc)d) + ...
+
+Binary vectors and smth
+
+0 with arrow = vec filled with 0 
+vice versa for 1 with arrow
+
+
+padding of the areas
+
+Color strat
+let there be two vectors I and O 
+I  must have two of its field set  
+eg: (0,1,1)
+O must have 1 of its field set 
+eg: (0,1,0)
+These two vectors must satisfy the property that I&O does not equal (0,0,0)
+For each corner detected
+
+Classify if convex or concave
+
+If convex: 
+    Refer to the diagram that labels convex in paper
+If concave: 
+    Refer to the diagram that labels concave in paper
+Pitfall in that it cannot account for a certain case 
+
+Collision of uncorrelated areas
+???
+
+
+Add padding is the fix apparently
+to derive the padding or the binary vectors of A  B if its inside the shape
+if its outside the shape and the binary vectors of A and B 
+If a and b then no padding so its fine if the operation is done regardless 
+
+Implementing the idea 
+
+Edge pruning 
+Couldn't find a specified threshold value for this personal testing prob
+
+General Image plotting stuff
+The pixel cords must be centerd so add  1/2 to the x,y coordinates, divide by width and height 
+to get the point P 
+
+preliminary defines
+let dMax = sm value (typically 255 or 1)
+let range = -dMax,  dMax 
+said range will be xonverted to 0, 255 aka normalized for texture atlas 
+for a given distance the color can be acquired by doing
+distanceRange = 2 * dMax
+maxColor = 255 for byte bitmaps
+( (distance / distanceRange) + 1/2 ) * maxColor 
+
+Signed distance - do the ortho + regular distance comps to properly get the right signed distance  
+some stuff 
+
+Edge coloring
+Rules: 
+Two channels must be on (I vector)
+resulting colors left: white, yellow, magenta, cyan
+corner sharpness perservation = two adjacent edges must have only one channel in common
+algorithm described in 6 
+
+To use the MSDF texture atlas
+define the bilinear sampling method(built in on most gpus)
+colordist function defined earlier
+
