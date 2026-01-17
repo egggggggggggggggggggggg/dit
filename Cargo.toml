@@ -2,5 +2,5 @@
 members = ["atlas_gen",
     "dit",
     "font_parser",
-    "atlas_gen",
+    "atlas_gen", "math",
 ]

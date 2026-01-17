@@ -23,7 +23,7 @@ impl VectorPolynomial {
 }
 #[derive(Debug)]
 pub struct Polynomial {
-    coefficients: Vec<f32>,
+    pub coefficients: Vec<f32>,
 }
 impl Polynomial {
     pub fn eval(&self, x: f32) -> f32 {
@@ -78,11 +78,11 @@ fn clamp(value: f32, min: f32, max: f32) -> f32 {
 }
 const EPSILON: f32 = 0.0001;
 #[derive(Debug, Clone, Copy)]
-struct Range {
-    lower: f32,
-    higher: f32,
+pub struct Range {
+    pub lower: f32,
+    pub higher: f32,
 }
-fn bisection(f: &Polynomial, initial_guess: Range) -> Option<f32> {
+pub fn bisection(f: &Polynomial, initial_guess: Range) -> Option<f32> {
     let mut a = initial_guess.lower;
     let mut b = initial_guess.higher;
     if f.eval_horner(a) * f.eval_horner(b) >= 0.0 {

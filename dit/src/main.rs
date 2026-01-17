@@ -1,7 +1,7 @@
+use atlas_gen::entry;
 use font_parser::ttf_parse::TtfFont;
 fn main() {
-    let res = median(122, 3333, 0);
-    println!("res: {}", res);
+    entry();
 }
 
 fn median<T>(a: T, b: T, c: T) -> T

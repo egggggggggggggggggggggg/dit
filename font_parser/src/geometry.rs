@@ -11,6 +11,12 @@ impl Vec2 {
     pub fn dot(&self, rhs: Self) -> f32 {
         self.x * rhs.x + self.y * rhs.y
     }
+    pub fn cross(&self, rhs: Self) -> f32 {
+        self.x * rhs.y - self.y * rhs.x
+    }
+    pub fn normalize(&self) -> Self {
+        *self / self.magnitude()
+    }
 }
 
 impl Mul<f32> for Vec2 {
@@ -122,6 +128,22 @@ impl BezierCurve {
                 *p0 * (u * u) + *p1 * (2.0 * u * t) + *p2 * (t * t)
             }
             BezierCurve::Linear(p0, p1) => (*p0 * u) + (*p1 * t),
+        }
+    }
+    pub fn derive_curve(&self) -> BezierCurve {
+        match self {
+            BezierCurve::Linear(p0, p1) => {
+                // Derivative of linear Bézier: constant vector (p1 - p0)
+                BezierCurve::Linear(*p1 - *p0, *p1 - *p0)
+            }
+            BezierCurve::Quadratic(p0, p1, p2) => {
+                // Derivative of quadratic Bézier: 2 * (1 - t) * (p1 - p0) + 2 * t * (p2 - p1)
+                BezierCurve::Linear((*p1 - *p0) * 2.0, (*p2 - *p1) * 2.0)
+            }
+            BezierCurve::Cubic(p0, p1, p2, p3) => {
+                // Derivative of cubic Bézier: 3 * (1 - t)^2 * (p1 - p0) + 6 * (1 - t) * t * (p2 - p1) + 3 * t^2 * (p3 - p2)
+                BezierCurve::Quadratic((*p1 - *p0) * 3.0, (*p2 - *p1) * 6.0, (*p3 - *p2) * 3.0)
+            }
         }
     }
 }
