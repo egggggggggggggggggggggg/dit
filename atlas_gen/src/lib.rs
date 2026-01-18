@@ -1,5 +1,6 @@
 mod allocator;
 pub mod atlas;
+use core::{f32, panic};
 use std::time::Instant;
 use std::{f32::EPSILON, vec};
 
@@ -22,7 +23,7 @@ pub fn entry() {
         let glyph = font.glyf.get_glyf(gid as u16).unwrap().clone();
         let header = glyph.get_header();
         let drawn_glyph: ImageBuffer<Rgb<u8>, Vec<u8>> =
-            draw_msdf_glyph(contour, 32, font.head.units_per_em, header);
+            draw_msdf_glyph(contour, 64, font.head.units_per_em, header);
         texture_atlas.add_image(c, &drawn_glyph).unwrap();
     }
     println!("time_elapsed: {:?}", current.elapsed().as_millis());
@@ -80,49 +81,33 @@ where
     let pixel_height = (height as f32 * scale).ceil().max(1.0) as u32;
     let mut img = ImageBuffer::new(pixel_width, pixel_height);
     let spread = 4.0; // try 4–16
-
+    let colored_shape = color_edges(&contour);
     for x in 0..pixel_width {
         for y in 0..pixel_height {
             let p = Vec2 {
                 x: bounds.x_min as f32 + (x as f32 + 0.5) / scale,
                 y: bounds.y_max as f32 - (y as f32 + 0.5) / scale,
             };
-            let dist = goober(&p, &contour);
-            // normalize to 0..1
-            let v = 0.5 + dist / (2.0 * spread);
-            let v = v.clamp(0.0, 1.0);
-            let gray = (v * 255.0) as u8;
-            let pixel = *P::from_slice(&[gray, gray, gray]);
-            img.put_pixel(x, y, pixel);
+            let dr = closest_edge_by_color(&p, &colored_shape, BinaryVector::RED);
+            let dg = closest_edge_by_color(&p, &colored_shape, BinaryVector::GREEN);
+            let db = closest_edge_by_color(&p, &colored_shape, BinaryVector::BLUE);
+
+            let r = ((0.5 + dr / (2.0 * spread)).clamp(0.0, 1.0) * 255.0) as u8;
+            let g = ((0.5 + dg / (2.0 * spread)).clamp(0.0, 1.0) * 255.0) as u8;
+            let b = ((0.5 + db / (2.0 * spread)).clamp(0.0, 1.0) * 255.0) as u8;
+            img.put_pixel(x, y, *P::from_slice(&[r, g, b]));
         }
     }
     img
 }
-
-fn goober(p: &Vec2, shape: &Vec<Vec<BezierCurve>>) -> f32 {
-    let mut min_dist: f32 = f32::MAX;
-    let colored_edges = color_edges(shape);
-    println!("colored_edges: {:?}", colored_edges);
-    for contour in shape {
-        for curve in contour {
-            let mdist = min_signed_dist(p, curve);
-            if min_dist.abs() > mdist.abs() {
-                min_dist = mdist;
-            }
-        }
-    }
-    min_dist
-}
 #[derive(Debug)]
 struct Edge<'a> {
-    color: BinaryVector,
-    curve: &'a BezierCurve,
+    pub color: BinaryVector,
+    pub curve: &'a BezierCurve,
 }
-
 // shape -> contours -> edges
-fn color_edges(shape: &Vec<Vec<BezierCurve>>) -> Vec<Vec<Edge>> {
-    let mut result: Vec<Vec<Edge>> = Vec::with_capacity(shape.len());
-
+fn color_edges<'a>(shape: &'a Vec<Vec<BezierCurve>>) -> Vec<Vec<Edge<'a>>> {
+    let mut result: Vec<Vec<Edge<'a>>> = Vec::with_capacity(shape.len());
     for contour in shape {
         let mut colored_contour = Vec::with_capacity(contour.len());
         let mut current = if contour.len() == 1 {
@@ -145,8 +130,93 @@ fn color_edges(shape: &Vec<Vec<BezierCurve>>) -> Vec<Vec<Edge>> {
     }
     result
 }
+///Finds the best candidate edge for
+fn closest_edge_by_color(p: &Vec2, shape: &Vec<Vec<Edge>>, color: BinaryVector) -> f32 {
+    let mut best: Option<Candidate> = None;
+    for contour in shape {
+        for edge in contour {
+            let t = min_dist(edge.curve, *p);
+            let candidate = categorize(p, edge.curve, t);
+            best = match best {
+                None => Some(candidate),
+                Some(prev) => {
+                    if cmp(&candidate, &prev) {
+                        Some(candidate)
+                    } else {
+                        Some(prev)
+                    }
+                }
+            };
+        }
+    }
 
-fn min_signed_dist(p: &Vec2, edge: &BezierCurve) -> f32 {
+    let mut c = best.unwrap();
+    c.dist *= signed_dist(c.t, &c.edge, p);
+    c.dist
+}
+fn generate_pixel(p: &Vec2, shape: &Vec<Vec<Edge>>) {
+    let mut d_red = f32::INFINITY;
+    let mut d_green = f32::INFINITY;
+    let mut d_blue = f32::INFINITY;
+    for contour in shape {
+        for edge in contour {
+            let t = min_dist(edge.curve, *p);
+
+            if edge.color.dot(&BinaryVector::RED) != 0 {}
+            if edge.color.dot(&BinaryVector::GREEN) != 0 {}
+            if edge.color.dot(&BinaryVector::BLUE) != 0 {}
+        }
+    }
+}
+#[derive(Copy, Clone, Debug)]
+struct Candidate {
+    dist: f32,
+    ortho: f32,
+    t: f32,
+    edge: BezierCurve,
+}
+const DIST_EPS: f32 = 1e-4;
+const ORTHO_EPS: f32 = 1e-3;
+///Finds the best candidate aka the one with either smaller absolute distance
+///or if they're equal the more orthogonal wins
+/// If still tied, go for the one thats more interior aka within the range 0 < t < 1
+fn cmp(a: &Candidate, b: &Candidate) -> bool {
+    if (a.dist - b.dist).abs() > DIST_EPS {
+        return a.dist < b.dist;
+    }
+    if (a.ortho - b.ortho).abs() > ORTHO_EPS {
+        return a.ortho < b.ortho;
+    }
+    a.t > 0.0 && a.t < 1.0
+}
+
+///Gives the sign for the distance value once it has been found
+fn signed_dist(min_dist_root: f32, edge: &BezierCurve, p: &Vec2) -> f32 {
+    let min_vector = edge.evaluate_bezier(min_dist_root) - *p;
+    let derirative_bezier = edge.derive_curve().evaluate_bezier(min_dist_root);
+    let tangent = derirative_bezier.normalize();
+    let normal = Vec2 {
+        x: -tangent.y,
+        y: tangent.x,
+    };
+    normal.dot(min_vector).signum()
+}
+///Gives information for the cmp function to work with (orthogonality values)
+fn categorize(p: &Vec2, edge: &BezierCurve, min_dist_root: f32) -> Candidate {
+    let min_vector = edge.evaluate_bezier(min_dist_root) - *p;
+    let dist = min_vector.magnitude();
+    let derirative_bezier = edge.derive_curve().evaluate_bezier(min_dist_root);
+    let tangent = derirative_bezier.normalize();
+    let ortho = tangent.dot(min_vector.normalize()).abs();
+    Candidate {
+        dist,
+        ortho,
+        t: min_dist_root,
+        edge: *edge,
+    }
+}
+///Gives all the roots for the polynomial resulting from bn(t) - p
+fn find_roots(p: &Vec2, edge: &BezierCurve) -> Vec<f32> {
     match *edge {
         BezierCurve::Quadratic(p0, p1, p2) => {
             let a = p0 - p1 * 2.0 + p2;
@@ -159,40 +229,20 @@ fn min_signed_dist(p: &Vec2, edge: &BezierCurve) -> f32 {
             let cubic = Polynomial {
                 coefficients: vec![k3, k2, k1, k0],
             };
-            let roots = cubic.find_roots(40, 0.0001);
-            let min_dist_root = min_dist(edge, *p, roots);
-            let min_vector = edge.evaluate_bezier(min_dist_root) - *p;
-            let dist = min_vector.magnitude();
-            let derivative_bezier = edge.derive_curve().evaluate_bezier(min_dist_root);
-            let tangent = derivative_bezier.normalize();
-            let normal = Vec2 {
-                x: -tangent.y,
-                y: tangent.x,
-            };
-            let sign = normal.dot(min_vector).signum();
-            sign * dist
+            cubic.find_roots(40, 0.0001)
         }
         BezierCurve::Linear(p0, p1) => {
             let d = p1 - p0;
             let t = ((*p - p0).dot(d) / d.dot(d)).clamp(0.0, 1.0);
-            let roots = vec![0.0, t, 1.0];
-            let min_dist_root = min_dist(edge, *p, roots);
-            let min_vector = edge.evaluate_bezier(min_dist_root) - *p;
-            let dist = min_vector.magnitude();
-            let derivative_bezier = edge.derive_curve().evaluate_bezier(min_dist_root);
-            let tangent = derivative_bezier.normalize();
-            let normal = Vec2 {
-                x: -tangent.y,
-                y: tangent.x,
-            };
-            let sign = normal.dot(min_vector).signum();
-            sign * dist
+            vec![0.0, t, 1.0]
         }
-        _ => 0.0,
+        _ => panic!("Cubic was in here for some reason"),
     }
 }
-fn min_dist(edge: &BezierCurve, p: Vec2, roots: Vec<f32>) -> f32 {
-    let mut best_t = 0.0;
+///Finds the best root that yields the min dist for an edge and p with the given roots
+fn min_dist(edge: &BezierCurve, p: Vec2) -> f32 {
+    let roots = find_roots(&p, edge);
+    let mut best_root = 0.0;
     let mut min_dist = f32::MAX;
     for t in roots {
         if !(0.0..=1.0).contains(&t) {
@@ -203,8 +253,80 @@ fn min_dist(edge: &BezierCurve, p: Vec2, roots: Vec<f32>) -> f32 {
 
         if d < min_dist {
             min_dist = d;
-            best_t = t;
+            best_root = t;
         }
     }
-    best_t
+    best_root
 }
+
+//get the shape
+//get the point
+//find the min dist by solving the cubic
+//get the root or the vector for said min_dist
+//maybe try and cache some of the calculations
+//get the vector result of the curve when solved at the root
+//take the root and solve for the orthogonality
+//put it into a candidate struct or smth
+//find the best candidate based off of the ortho measure
+//take that and do some edge coloring
+//determine the pixel color based off of best edge
+//blah blah some stuff
+
+// fn min_signed_dist(p: &Vec2, edge: &BezierCurve) -> Candidate {
+//     match *edge {
+//         BezierCurve::Quadratic(p0, p1, p2) => {
+//             let a = p0 - p1 * 2.0 + p2;
+//             let b = (p1 - p0) * 2.0;
+//             let c = p0;
+//             let k3 = 2.0 * a.dot(a);
+//             let k2 = 3.0 * a.dot(b);
+//             let k1 = b.dot(b) + 2.0 * a.dot(c - *p);
+//             let k0 = b.dot(c - *p);
+//             let cubic = Polynomial {
+//                 coefficients: vec![k3, k2, k1, k0],
+//             };
+//             let roots = cubic.find_roots(40, 0.0001);
+//             let min_dist_root = min_dist(edge, *p, roots);
+//             let min_vector = edge.evaluate_bezier(min_dist_root) - *p;
+//             let dist = min_vector.magnitude();
+//             let derivative_bezier = edge.derive_curve().evaluate_bezier(min_dist_root);
+//             let tangent = derivative_bezier.normalize();
+//             let normal = Vec2 {
+//                 x: -tangent.y,
+//                 y: tangent.x,
+//             };
+//             let sign = normal.dot(min_vector).signum();
+//             let ortho = tangent.dot(min_vector.normalize()).abs();
+//             Candidate {
+//                 dist: dist * sign,
+//                 ortho,
+//                 t: min_dist_root,
+//                 edge: *edge,
+//             }
+//         }
+//         BezierCurve::Linear(p0, p1) => {
+//             let d = p1 - p0;
+//             let t = ((*p - p0).dot(d) / d.dot(d)).clamp(0.0, 1.0);
+//             let roots = vec![0.0, t, 1.0];
+//             let min_dist_root = min_dist(edge, *p, roots);
+//             let min_vector = edge.evaluate_bezier(min_dist_root) - *p;
+//             let dist = min_vector.magnitude();
+//             let derivative_bezier = edge.derive_curve().evaluate_bezier(min_dist_root);
+//             let tangent = derivative_bezier.normalize();
+//             let normal = Vec2 {
+//                 x: -tangent.y,
+//                 y: tangent.x,
+//             };
+//             let sign = normal.dot(min_vector).signum();
+//             let ortho = tangent.dot(min_vector.normalize()).abs();
+//             Candidate {
+//                 dist: dist * sign,
+//                 ortho,
+//                 t: min_dist_root,
+//                 edge: *edge,
+//             }
+//         }
+//         _ => panic!("Cubic was in here for some reason"),
+//     }
+// }
+// fn

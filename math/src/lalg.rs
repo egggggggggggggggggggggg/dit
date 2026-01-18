@@ -201,4 +201,7 @@ impl BinaryVector {
     pub fn dot(&self, rhs: &Self) -> u8 {
         (self.x & rhs.x) as u8 + (self.y & rhs.y) as u8 + (self.z & rhs.z) as u8
     }
+    pub fn median(&self) -> bool {
+        ((self.x & self.y) | (self.x & self.z) | (self.y & self.z))
+    }
 }
