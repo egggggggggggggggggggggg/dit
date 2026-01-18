@@ -1,9 +1,9 @@
 use crate::{
     cursor::Cursor,
     error::Error,
-    geometry::{BezierCurve, Transform, Vec2},
     table::{GlyphId, TableRecord},
 };
+use math::lalg::{BezierCurve, Transform, Vec2};
 use std::{collections::HashMap, sync::Arc};
 #[derive(Copy, Clone, Debug)]
 enum ComponentFlags {

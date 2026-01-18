@@ -158,6 +158,7 @@ version = "0.1.0"
 dependencies = [
  "font_parser",
  "image",
+ "math",
 ]
 
 [[package]]
@@ -639,6 +640,9 @@ dependencies = [
 [[package]]
 name = "font_parser"
 version = "0.1.0"
+dependencies = [
+ "math",
+]
 
 [[package]]
 name = "foreign-types"

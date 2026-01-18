@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use crate::cursor::Cursor;
 use crate::error::{Error, ReadError};
-use crate::geometry::{BezierCurve, Transform, transform_curve};
 pub use crate::table::*;
+use math::lalg::{BezierCurve, Transform, transform_curve};
 use std::fs::File;
 use std::io::Read;
 pub struct TtfFont {
