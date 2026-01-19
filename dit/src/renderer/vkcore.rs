@@ -70,7 +70,6 @@ impl VkApp {
         let swapchain_image_views =
             Self::create_swapchain_image_views(vk_context.device(), &images, properties);
         let msaa_samples = vk_context.get_max_usable_sample_count();
-
         let render_pass = Self::create_render_pass(vk_context.device(), properties, msaa_samples);
     }
     fn pick_physical_device(

@@ -7,7 +7,7 @@ use std::{f32::EPSILON, vec};
 use atlas::*;
 use font_parser::{GlyphHeader, TtfFont};
 use image::{ImageBuffer, Pixel, Rgb, Rgba};
-use math::calc::{Polynomial, Range, bisection};
+use math::calc::{Polynomial, Range, bisection, median};
 use math::lalg::{BezierCurve, BinaryVector, Vec2};
 
 use crate::allocator::ShelfAllocator;
@@ -28,6 +28,27 @@ pub fn entry() {
     }
     println!("time_elapsed: {:?}", current.elapsed().as_millis());
     texture_atlas.image.save("../texture_atlas.png").unwrap();
+    sample_atlas(texture_atlas, 'c');
+}
+fn sample_atlas(texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator>, char: char) {
+    if let Some(entry) = texture_atlas.table.get(&char) {
+        let mut char_image: ImageBuffer<Rgb<u8>, Vec<u8>> =
+            ImageBuffer::new(entry.width, entry.height);
+        for x in 0..entry.width {
+            for y in 0..entry.height {
+                let px = entry.x + x;
+                let py = entry.y + y;
+                let new_pixel = *texture_atlas.image.get_pixel(px, py);
+                let Rgb([r, g, b]) = new_pixel;
+
+                let sd = median(r, g, b);
+                println!("sd: {}", sd);
+                char_image.put_pixel(x, y, Rgb([sd, sd, sd]));
+            }
+        }
+        char_image.save(format!("../{}.png", char)).unwrap();
+        println!("{:?}", entry);
+    };
 }
 
 fn draw_glyph<P>(

@@ -140,7 +140,7 @@ pub fn clamp(value: f32, min: f32, max: f32) -> f32 {
     value.min(min).max(max)
 }
 #[inline(always)]
-pub fn median(a: f32, b: f32, c: f32) -> f32 {
+pub fn median(a: u8, b: u8, c: u8) -> u8 {
     if a < b {
         if b < c {
             b
