@@ -15,7 +15,7 @@ pub fn entry() {
     let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
     let atlas_allocator = ShelfAllocator::new(1024, 1024);
     let mut texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator> =
-        Atlas::new(1024, 1024, atlas_allocator);
+        Atlas::new(512, 512, atlas_allocator);
     let current = Instant::now();
     for c in 'a'..'z' {
         let gid = font.lookup(c as u32).unwrap();
@@ -23,7 +23,7 @@ pub fn entry() {
         let glyph = font.glyf.get_glyf(gid as u16).unwrap().clone();
         let header = glyph.get_header();
         let drawn_glyph: ImageBuffer<Rgb<u8>, Vec<u8>> =
-            draw_msdf_glyph(contour, 64, font.head.units_per_em, header);
+            draw_msdf_glyph(contour, 32, font.head.units_per_em, header);
         texture_atlas.add_image(c, &drawn_glyph).unwrap();
     }
     println!("time_elapsed: {:?}", current.elapsed().as_millis());
@@ -130,11 +130,37 @@ fn color_edges<'a>(shape: &'a Vec<Vec<BezierCurve>>) -> Vec<Vec<Edge<'a>>> {
     }
     result
 }
+const COLORS: [BinaryVector; 3] = [
+    BinaryVector::YELLOW,  // R+G
+    BinaryVector::CYAN,    // G+B
+    BinaryVector::MAGENTA, // R+B
+];
+fn color_edges2<'a>(shape: &'a Vec<Vec<BezierCurve>>) -> Vec<Vec<Edge<'a>>> {
+    let mut result = Vec::with_capacity(shape.len());
+
+    for contour in shape {
+        let mut colored = Vec::with_capacity(contour.len());
+
+        for (i, curve) in contour.iter().enumerate() {
+            colored.push(Edge {
+                color: COLORS[i % 3],
+                curve,
+            });
+        }
+
+        result.push(colored);
+    }
+
+    result
+}
 ///Finds the best candidate edge for
 fn closest_edge_by_color(p: &Vec2, shape: &Vec<Vec<Edge>>, color: BinaryVector) -> f32 {
     let mut best: Option<Candidate> = None;
     for contour in shape {
         for edge in contour {
+            if edge.color.dot(&color) == 0 {
+                continue;
+            }
             let t = min_dist(edge.curve, *p);
             let candidate = categorize(p, edge.curve, t);
             best = match best {
