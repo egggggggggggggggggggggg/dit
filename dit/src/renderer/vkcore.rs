@@ -71,6 +71,7 @@ impl VkApp {
             Self::create_swapchain_image_views(vk_context.device(), &images, properties);
         let msaa_samples = vk_context.get_max_usable_sample_count();
         let render_pass = Self::create_render_pass(vk_context.device(), properties, msaa_samples);
+        let descriptor_set_layout = Self::create
     }
     fn pick_physical_device(
         instance: &Instance,
@@ -389,6 +390,7 @@ impl VkApp {
         let create_info = vk::ShaderModuleCreateInfo::default().code(code);
         unsafe { device.create_shader_module(&create_info, None).unwrap() }
     }
+    fn create_descriptor_set_layout
 }
 
 //make sme utils for easy buffer allocation
@@ -396,7 +398,7 @@ impl VkApp {
 struct Buffer {
     buffer: vk::Buffer,
     device_local_buffer: vk::Buffer,
-    
+     
 }
 impl Buffer {
     fn allocate() {}

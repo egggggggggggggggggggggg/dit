@@ -15,9 +15,9 @@ pub fn entry() {
     let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
     let atlas_allocator = ShelfAllocator::new(1024, 1024);
     let mut texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator> =
-        Atlas::new(512, 512, atlas_allocator);
+        Atlas::new(512, 1024, atlas_allocator);
     let current = Instant::now();
-    for c in 'a'..'z' {
+    for c in '!'..'~' {
         let gid = font.lookup(c as u32).unwrap();
         let contour = font.assemble_glyf(gid as u16).unwrap();
         let glyph = font.glyf.get_glyf(gid as u16).unwrap().clone();
@@ -28,9 +28,8 @@ pub fn entry() {
     }
     println!("time_elapsed: {:?}", current.elapsed().as_millis());
     texture_atlas.image.save("../texture_atlas.png").unwrap();
-    sample_atlas(texture_atlas, 'c');
 }
-fn sample_atlas(texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator>, char: char) {
+fn sample_atlas(texture_atlas: &Atlas<char, Rgb<u8>, ShelfAllocator>, char: char) {
     if let Some(entry) = texture_atlas.table.get(&char) {
         let mut char_image: ImageBuffer<Rgb<u8>, Vec<u8>> =
             ImageBuffer::new(entry.width, entry.height);
@@ -46,7 +45,7 @@ fn sample_atlas(texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator>, char: char)
                 char_image.put_pixel(x, y, Rgb([sd, sd, sd]));
             }
         }
-        char_image.save(format!("../{}.png", char)).unwrap();
+        char_image.save(format!("../letters/{}.png", char)).unwrap();
         println!("{:?}", entry);
     };
 }
