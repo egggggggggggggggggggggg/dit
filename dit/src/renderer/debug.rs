@@ -1,4 +1,6 @@
-pub const ENABLE_VALIDATION_LAYER: bool = true;
+pub const ENABLE_VALIDATION_LAYERS: bool = true;
+
+
 use ash::{Entry, Instance, ext::debug_utils, vk};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
@@ -50,7 +52,7 @@ pub fn create_instance(entry: &Entry, window: &Window) -> ash::Instance {
         ash_window::enumerate_required_extensions(window.display_handle().unwrap().as_raw())
             .unwrap();
     let mut extension_names = extension_names.to_vec();
-    if ENABLE_VALIDATION_LAYER {
+    if ENABLE_VALIDATION_LAYERS {
         extension_names.push(debug_utils::NAME.as_ptr());
     }
     #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -69,13 +71,12 @@ pub fn create_instance(entry: &Entry, window: &Window) -> ash::Instance {
         .application_info(&app_info)
         .enabled_extension_names(&extension_names)
         .flags(create_flags);
-    if ENABLE_VALIDATION_LAYER {
+    if ENABLE_VALIDATION_LAYERS {
         let supported_layers = unsafe { entry.enumerate_instance_layer_properties().unwrap() };
         for required in REQUIRED_LAYERS.iter() {
             let found = supported_layers.iter().any(|layer| {
-                let name = unsafe { CStr::from_ptr(layer.layer_name.as_ptr()) }
-                    .to_str()
-                    .unwrap();
+                let name = unsafe { CStr::from_ptr(layer.layer_name.as_ptr()) };
+                let name = name.to_str().expect("Failed to get layer name pointer");
                 required == &name
             });
             if !found {
@@ -104,7 +105,7 @@ pub fn setup_debug_messenger(
     entry: &Entry,
     instance: &Instance,
 ) -> Option<(debug_utils::Instance, vk::DebugUtilsMessengerEXT)> {
-    if !ENABLE_VALIDATION_LAYER {
+    if !ENABLE_VALIDATION_LAYERS {
         return None;
     }
     let create_info = create_debug_create_info();
