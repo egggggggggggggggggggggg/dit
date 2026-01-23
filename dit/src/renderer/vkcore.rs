@@ -225,6 +225,7 @@ impl VkApp {
         surface: &surface::Instance,
         surface_khr: vk::SurfaceKHR,
     ) -> (vk::PhysicalDevice, QueueFamiliesIndices) {
+        println!("printing instance info");
         let devices = unsafe { instance.enumerate_physical_devices().unwrap() };
         let device = devices
             .into_iter()
@@ -237,7 +238,8 @@ impl VkApp {
             present_index: present.unwrap(),
             transfer_index: transfer.unwrap(),
         };
-
+        let props = unsafe { instance.get_physical_device_properties(device) };
+        println!("properties of device: {:?}", props.limits);
         (device, queue_families_indices)
     }
 
@@ -1011,9 +1013,7 @@ impl VkApp {
         copy_queue: vk::Queue,
     ) -> Texture {
         let cursor = load("texture_atlas.png");
-        let image = image::load(cursor, image::ImageFormat::Png)
-            .unwrap()
-            .flipv();
+        let image = image::load(cursor, image::ImageFormat::Png).unwrap();
         let image_as_rgb = image.to_rgba8();
         let width = image_as_rgb.width();
         let height = image_as_rgb.height();
@@ -1675,7 +1675,7 @@ impl Vertex {
         let position_desc = vk::VertexInputAttributeDescription::default()
             .binding(0)
             .location(0)
-            .format(vk::Format::R32G32B32_SFLOAT)
+            .format(vk::Format::R32G32_SFLOAT)
             .offset(offset_of!(Vertex, pos) as _);
         let uv_desc = vk::VertexInputAttributeDescription::default()
             .binding(0)

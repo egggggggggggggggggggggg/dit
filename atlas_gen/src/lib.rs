@@ -13,9 +13,9 @@ use math::lalg::{BezierCurve, BinaryVector, Vec2};
 use crate::allocator::ShelfAllocator;
 pub fn entry() {
     let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
-    let atlas_allocator = ShelfAllocator::new(1024, 1024);
+    let atlas_allocator = ShelfAllocator::new(512, 512);
     let mut texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator> =
-        Atlas::new(512, 1024, atlas_allocator);
+        Atlas::new(512, 512, atlas_allocator);
     let current = Instant::now();
     for c in '!'..'~' {
         let gid = font.lookup(c as u32).unwrap();

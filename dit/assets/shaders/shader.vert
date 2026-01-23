@@ -1,9 +1,9 @@
 #version 450
 layout(location = 0) in vec2 aPos;
-layout(location = 1) in vec4 aColor;
+layout(location = 1) in vec2 uv;
 
-layout(location = 0) out vec4 color;
+layout(location = 0) out vec2 o_uv;
 void main() {
-   color = aColor;
+   o_uv = uv;
    gl_Position = vec4(aPos.x, aPos.y, 0.0, 1.0);
 }
