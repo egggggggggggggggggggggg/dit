@@ -1,9 +1,12 @@
+pub mod buffer;
 pub mod context;
 pub mod debug;
+pub mod memory;
 pub mod shader;
 pub mod swapchain;
 pub mod vkcore;
 
+use ash::vk;
 use std::{collections::HashSet, time::Instant};
 use winit::{
     application::ApplicationHandler,
@@ -14,7 +17,7 @@ use winit::{
     window::Window,
 };
 
-use crate::renderer::vkcore::VkApp;
+use crate::{renderer::vkcore::VkApp, screen::Screen};
 const WIDTH: u32 = 960;
 const HEIGHT: u32 = 540;
 #[derive(Default)]
@@ -24,6 +27,7 @@ pub struct App {
     pub vk_app: Option<VkApp>,
     frame_counter: u32,
     instant: Option<Instant>,
+    screen: Screen,
 }
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -38,6 +42,7 @@ impl ApplicationHandler for App {
         self.vk_app = Some(VkApp::new(&window));
         self.window = Some(window);
         self.instant = Some(Instant::now());
+        self.screen = Screen::new(10, 30);
     }
     fn window_event(
         &mut self,
@@ -71,6 +76,7 @@ impl ApplicationHandler for App {
                         }
                     }
                 }
+                self.screen.change(&event, &self.pressed_keys);
             }
             _ => (),
         }
@@ -78,7 +84,6 @@ impl ApplicationHandler for App {
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
         let app = self.vk_app.as_mut().unwrap();
         let window = self.window.as_ref().unwrap();
-
         if app.dirty_swapchain {
             let size = window.inner_size();
             if size.width > 0 && size.height > 0 {
@@ -102,3 +107,4 @@ impl ApplicationHandler for App {
         self.vk_app.as_ref().unwrap().wait_gpu_idle();
     }
 }
+//for each frame give

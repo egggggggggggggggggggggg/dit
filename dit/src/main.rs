@@ -19,3 +19,7 @@ where
 {
     (a.min(b)).max(b.min(c))
 }
+//refactoring
+//currently the entire thing is basically baked in
+//change the pipeline to allow passing in of uniforms and whatnot
+//setup a simple config file parser
