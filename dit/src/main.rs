@@ -1,14 +1,22 @@
 use atlas_gen::entry;
 use dit::renderer::App;
 use font_parser::ttf_parse::TtfFont;
-use winit::event_loop::{ControlFlow, EventLoop};
+use winit::{
+    event_loop::{ControlFlow, EventLoop},
+    raw_window_handle::HasDisplayHandle,
+};
+const FONT_SIZE: u32 = 16;
 fn main() {
     //     unsafe {
     //         std::env::set_var("RUST_BACKTRACE", "1");
     //     }
+
+    //load the config files
+    //parse it and use those as the default parameters
+    //for now use constants in place of the config
+
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);
-
     let mut app = App::default();
     event_loop.run_app(&mut app).unwrap();
 }

@@ -1,4 +1,8 @@
-use ash::khr::surface;
+use crate::renderer::context::VkContext;
+use crate::renderer::queue::QueueFamiliesIndices;
+use crate::renderer::texture::create_image_view;
+use ash::Device;
+use ash::khr;
 use ash::vk;
 
 pub struct SwapchainSupportDetails {
@@ -10,7 +14,7 @@ pub struct SwapchainSupportDetails {
 impl SwapchainSupportDetails {
     pub fn new(
         device: vk::PhysicalDevice,
-        surface: &surface::Instance,
+        surface: &khr::surface::Instance,
         surface_khr: vk::SurfaceKHR,
     ) -> Self {
         let capabilities = unsafe {
@@ -99,4 +103,82 @@ pub struct SwapchainProperties {
     pub format: vk::SurfaceFormatKHR,
     pub present_mode: vk::PresentModeKHR,
     pub extent: vk::Extent2D,
+}
+pub fn create_swapchain_and_images(
+    vk_context: &VkContext,
+    queue_families_indices: QueueFamiliesIndices,
+    dimensions: [u32; 2],
+) -> (
+    khr::swapchain::Device,
+    vk::SwapchainKHR,
+    SwapchainProperties,
+    Vec<vk::Image>,
+) {
+    let details = SwapchainSupportDetails::new(
+        vk_context.physical_device(),
+        vk_context.surface(),
+        vk_context.surface_khr(),
+    );
+    let properties = details.get_ideal_swapchain_properties(dimensions);
+
+    let format = properties.format;
+    let present_mode = properties.present_mode;
+    let extent = properties.extent;
+    let image_count = {
+        let max = details.capabilities.max_image_count;
+        let mut preferred = details.capabilities.min_image_count + 1;
+        if max > 0 && preferred > max {
+            preferred = max;
+        }
+        preferred
+    };
+    println!("image_count: {}", image_count);
+    let graphics = queue_families_indices.graphics_index;
+    let present = queue_families_indices.present_index;
+    let families_indices = [graphics, present];
+    let create_info = {
+        let mut builder = vk::SwapchainCreateInfoKHR::default()
+            .surface(vk_context.surface_khr())
+            .min_image_count(image_count)
+            .image_format(format.format)
+            .image_color_space(format.color_space)
+            .image_extent(extent)
+            .image_array_layers(1)
+            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT);
+        builder = if graphics != present {
+            builder
+                .image_sharing_mode(vk::SharingMode::CONCURRENT)
+                .queue_family_indices(&families_indices)
+        } else {
+            builder.image_sharing_mode(vk::SharingMode::EXCLUSIVE)
+        };
+        builder
+            .pre_transform(details.capabilities.current_transform)
+            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+            .present_mode(present_mode)
+            .clipped(true)
+    };
+
+    let swapchain = khr::swapchain::Device::new(vk_context.instance(), vk_context.device());
+    let swapchain_khr = unsafe { swapchain.create_swapchain(&create_info, None).unwrap() };
+    let images = unsafe { swapchain.get_swapchain_images(swapchain_khr).unwrap() };
+    (swapchain, swapchain_khr, properties, images)
+}
+pub fn create_swapchain_image_views(
+    device: &Device,
+    swapchain_images: &[vk::Image],
+    swapchain_properties: SwapchainProperties,
+) -> Vec<vk::ImageView> {
+    swapchain_images
+        .iter()
+        .map(|image| {
+            create_image_view(
+                device,
+                *image,
+                1,
+                swapchain_properties.format.format,
+                vk::ImageAspectFlags::COLOR,
+            )
+        })
+        .collect::<Vec<_>>()
 }

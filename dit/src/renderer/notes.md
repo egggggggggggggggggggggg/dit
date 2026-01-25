@@ -1,0 +1,56 @@
+- First link to the vulkan library aka the thing that allows you to use vulkan at all
+- This is the entry thing
+- Create an instance 
+- This contains the basic stuff like layers for validation + extensions
+- Surface is the thing that we use to present the rendered image to
+- This allows us to tell the OS to present stuff and whatnot
+- Debug report callback sets up a function for validation layer callback 
+- Physical device is the software abstraction of the physical gpu
+- Allows us to query stuff like the queue families it exposes
+- This is important cause each queue is specialized in a certain task and thus can be faster sometimes
+- There is transfer, graphics and present
+- Graphics = rendering basically 
+- Transfer = buffer transfer 
+- Present = presenting to the surface mentioned before
+- Device is the logical device which is anothe abstraction allowing multiple applications to utilize the same physical device 
+- Within queue families there are queues that are of the same type
+- Querying this is how you actually utilize the gpu for tasks
+- Swapchain is a queue of images to be presentedd to the surface
+- Typically the swapchain is 3 images called triple buffering
+- This is ideal as one is being worked on by the GPU, one is being presented 
+- and the other is being worked on by the CPU
+- The application acquires an image from the swapchain for work on the CPU side
+- For using an image you must get an imageView
+- It descrivbes to how access the image like if its 2d texture, etc
+- Renderpass is basically a description for how to render stuff during frame gen
+- Allows for optimizations 
+- Descriptor set layout describes the resources you send to the shaders
+- This is the stuff like vertex/index buffers + uniforms and whatnot
+- Within it the shader mopdule is there
+- Specify the shader state info to be passed in 
+- Vertex binding + attributes specify the layout of the vertex struct in the buffer
+- This vertex struct can contain both UVs(texture coordinates) + regular coordinates (mesh stuff) and other stuff
+- Input assembly info specify how the assembler will interpret the vertices
+- Classic type is triangles
+- The Viewport defines how the normalized device coords are trasformed into pixel coords
+- Scissor = area where you can render
+- Rasterizer is the thing that actually converts the shape into pixels onto the screen
+- Multisampling info specifies how to sample the pixels
+- Depth stencil info = depth buffer stuff
+- Color blending info = ? 
+- Command pool for recording commands 
+- Textures = textures for the sampler in the fragment shader
+- Swapchain framebuffers = where the resources get stored for rendering a single image within the swapchain
+- Buffer allocation stuff for the resources
+- Descirptor stuff
+- Command buffers = records the command stuff to be performed during rendering (reused)
+- In flight frames = sync primitives for frame generation and sync between cpu and gpu
+-  
+
+Possible Optimizations
+- Noting what wont change as much
+- This can allow us to avoid excessive resource binding like pools
+- Pipeline caching
+- Since the pipeline never really changes we can use vkPipelineCache to resue it later on
+- 
+- 

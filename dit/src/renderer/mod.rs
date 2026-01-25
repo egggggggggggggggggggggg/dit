@@ -1,12 +1,34 @@
-pub mod buffer;
-pub mod context;
-pub mod debug;
-pub mod memory;
-pub mod shader;
-pub mod swapchain;
-pub mod vkcore;
-
+mod buffer;
+mod command;
+mod context;
+mod debug;
+mod device;
+mod pipeline;
+mod queue;
+mod renderpass;
+mod resources;
+mod shader;
+mod swapchain;
+mod texture;
+mod utils;
+mod vkapp;
+// mod vkcore;
 use ash::vk;
+use buffer::*;
+use command::*;
+use context::*;
+use debug::*;
+use device::*;
+use pipeline::*;
+use queue::*;
+use renderpass::*;
+use resources::*;
+use shader::*;
+use swapchain::*;
+use texture::*;
+use utils::*;
+// use vkcore::*;
+
 use std::{collections::HashSet, time::Instant};
 use winit::{
     application::ApplicationHandler,
@@ -17,14 +39,15 @@ use winit::{
     window::Window,
 };
 
-use crate::{renderer::vkcore::VkApp, screen::Screen};
+use crate::{renderer::vkapp::VkApplication, screen::Screen};
 const WIDTH: u32 = 960;
 const HEIGHT: u32 = 540;
+//cannot use default for this as some config info is required 
 #[derive(Default)]
 pub struct App {
     pressed_keys: HashSet<KeyCode>,
     window: Option<Window>,
-    pub vk_app: Option<VkApp>,
+    pub vk_app: Option<VkApplication>,
     frame_counter: u32,
     instant: Option<Instant>,
     screen: Screen,
@@ -38,8 +61,8 @@ impl ApplicationHandler for App {
                     .with_inner_size(PhysicalSize::new(WIDTH, HEIGHT)),
             )
             .unwrap();
-
-        self.vk_app = Some(VkApp::new(&window));
+        println!("Inner window size: {:?}", window.inner_size());
+        self.vk_app = Some(VkApplication::new(&window, 10));
         self.window = Some(window);
         self.instant = Some(Instant::now());
         self.screen = Screen::new(10, 30);

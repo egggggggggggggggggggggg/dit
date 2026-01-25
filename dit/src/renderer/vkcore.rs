@@ -1216,7 +1216,6 @@ impl VkApp {
         let size = size_of::<UniformBufferObject>() as vk::DeviceSize;
         let mut buffers = Vec::new();
         let mut memories = Vec::new();
-        println!("count {}", count);
         for _ in 0..count {
             let (buffer, memory, _) = Self::create_buffer(
                 vk_context,
@@ -1224,7 +1223,6 @@ impl VkApp {
                 vk::BufferUsageFlags::UNIFORM_BUFFER,
                 vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             );
-            println!("segfault happened here!!!");
 
             buffers.push(buffer);
             memories.push(memory);
@@ -1764,10 +1762,12 @@ impl InFlightFrames {
             current_frame: 0,
         }
     }
-
     fn destroy(&self, device: &Device) {
         self.sync_objects.iter().for_each(|o| o.destroy(device));
     }
+    //Returns the next resource
+    //Dynamic vertex buffer + Sync Objects for the
+    fn unitered_next() {}
 }
 
 impl Iterator for InFlightFrames {

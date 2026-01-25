@@ -1,6 +1,5 @@
 pub const ENABLE_VALIDATION_LAYERS: bool = true;
 
-
 use ash::{Entry, Instance, ext::debug_utils, vk};
 use std::ffi::{CStr, CString};
 use std::os::raw::{c_char, c_void};
