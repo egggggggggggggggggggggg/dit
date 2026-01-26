@@ -2,8 +2,9 @@ use atlas_gen::entry;
 use dit::renderer::App;
 use font_parser::ttf_parse::TtfFont;
 use winit::{
-    event_loop::{ControlFlow, EventLoop},
+    event_loop::{ActiveEventLoop, ControlFlow, EventLoop},
     raw_window_handle::HasDisplayHandle,
+    window::WindowAttributes,
 };
 const FONT_SIZE: u32 = 16;
 fn main() {
@@ -17,6 +18,7 @@ fn main() {
 
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);
+
     let mut app = App::default();
     event_loop.run_app(&mut app).unwrap();
 }

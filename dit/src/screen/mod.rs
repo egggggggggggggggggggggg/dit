@@ -1,17 +1,49 @@
-use std::collections::{HashMap, HashSet};
+use std::{
+    collections::{HashMap, HashSet},
+    mem::offset_of,
+};
 
+use ash::vk;
 use winit::{
     event::{ElementState, KeyEvent},
     keyboard::KeyCode,
 };
+#[derive(Clone, Copy)]
+#[repr(C)]
+pub struct Vertex {
+    pos: [f32; 2],
+}
+impl Vertex {
+    fn binding_description() -> vk::VertexInputBindingDescription {
+        vk::VertexInputBindingDescription::default()
+            .binding(0)
+            .stride(size_of::<Vertex>() as _)
+            .input_rate(vk::VertexInputRate::VERTEX)
+    }
+    fn attribute_description() -> [vk::VertexInputAttributeDescription; 1] {
+        let position_desc = vk::VertexInputAttributeDescription::default()
+            .binding(0)
+            .location(0)
+            .format(vk::Format::R32G32_SFLOAT)
+            .offset(offset_of!(Vertex, pos) as _);
+        [position_desc]
+    }
+}
 
+struct CellMesh {}
+struct CellCache {
+    cache: HashMap<char, CellMesh>,
+}
+impl CellCache {
+    fn new() {}
+}
 #[derive(Default)]
 pub struct Screen {
-    rows: Vec<Row>,
-    cursor: (usize, usize),
-    max_rows: usize,
-    max_cells: usize,
-    damaged: Vec<usize>,
+    pub rows: Vec<Row>,
+    pub cursor: (usize, usize),
+    pub max_rows: usize,
+    pub max_cells: usize,
+    pub damaged: Vec<usize>,
 }
 impl Screen {
     pub fn new(max_rows: usize, max_cells: usize) -> Self {
@@ -108,8 +140,8 @@ impl Cell {
     }
 }
 #[derive(Default, Clone)]
-struct Row {
-    cells: Vec<Cell>,
+pub struct Row {
+    pub cells: Vec<Cell>,
 }
 bitflags::bitflags!(
     #[derive(Default, Clone, Copy)]

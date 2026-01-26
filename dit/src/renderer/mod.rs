@@ -29,7 +29,7 @@ use texture::*;
 use utils::*;
 // use vkcore::*;
 
-use std::{collections::HashSet, time::Instant};
+use std::{cell, collections::HashSet, time::Instant};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -42,7 +42,7 @@ use winit::{
 use crate::{renderer::vkapp::VkApplication, screen::Screen};
 const WIDTH: u32 = 960;
 const HEIGHT: u32 = 540;
-//cannot use default for this as some config info is required 
+//cannot use default for this as some config info is required
 #[derive(Default)]
 pub struct App {
     pressed_keys: HashSet<KeyCode>,
@@ -51,6 +51,7 @@ pub struct App {
     frame_counter: u32,
     instant: Option<Instant>,
     screen: Screen,
+    glyph_mesh: Vec<InstanceData>,
 }
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -131,3 +132,65 @@ impl ApplicationHandler for App {
     }
 }
 //for each frame give
+pub fn get_uv(char: Option<char>) -> [f32; 4] {
+    [0.0f32, 0.0f32, 0.0f32, 0.0f32]
+}
+impl App {
+    pub fn new(row_size: usize, cell_size: usize) -> Self {
+        Self {
+            frame_counter: 0,
+            glyph_mesh: Vec::with_capacity(row_size * cell_size),
+            screen: Screen::new(row_size, cell_size),
+            instant: Some(Instant::now()),
+            pressed_keys: HashSet::new(),
+            window: None,
+            vk_app: None,
+        }
+    }
+    //this should really have each row have its own instance data instead so we dont reconstruct the whole thing
+    pub fn construct_mesh(&self) -> Vec<InstanceData> {
+        let rows = &self.screen.rows;
+        let mut instance_vec = Vec::new();
+        let mut row_counter = 0.0f32;
+        for row in rows {
+            let mut cell_counter = 0.0f32;
+            for cell in &row.cells {
+                let instance_data = InstanceData {
+                    pos: [cell_counter, row_counter],
+                    size: [1.0, 1.0],
+                    uv: get_uv(cell.glyph),
+                    bg: cell.bg,
+                    fg: cell.fg,
+                };
+                instance_vec.push(instance_data);
+                cell_counter += 1.0;
+            }
+            row_counter += 1.0;
+        }
+        instance_vec
+    }
+    pub fn construct_row_mesh(&mut self, row_number: usize) {
+        let row = &self.screen.rows[row_number];
+        let mut cell_counter = 0.0f32;
+        let glyph_mesh = &mut self.glyph_mesh;
+        for cell in &row.cells {
+            let instance_data = InstanceData {
+                pos: [cell_counter, row_number as f32],
+                size: [1.0, 1.0],
+                uv: get_uv(cell.glyph),
+                bg: cell.bg,
+                fg: cell.fg,
+            };
+            let offset = self.screen.max_cells * row_number + cell_counter as usize;
+            glyph_mesh[offset] = instance_data;
+            cell_counter += 1.0;
+        }
+    }
+    pub fn check_damage(&mut self) {
+        if self.screen.damaged.len() > 0 {
+            while let Some(row) = self.screen.damaged.pop() {
+                self.construct_row_mesh(row);
+            }
+        }
+    }
+}

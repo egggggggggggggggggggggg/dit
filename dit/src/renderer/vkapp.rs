@@ -11,7 +11,8 @@ use winit::{
 };
 const WIDTH: u32 = 500;
 const HEIGHT: u32 = 500;
-pub const MAX_FRAMES_IN_FLIGHT: u32 = 4;
+pub const MAX_FRAMES_IN_FLIGHT: u32 = 2;
+
 pub struct VkApplication {
     pub resize_dimensions: [u32; 2],
     pub is_left_clicked: bool,
@@ -383,5 +384,30 @@ impl VkApplication {
         self.color_texture = color_texture;
         self.swapchain_framebuffers = swapchain_framebuffers;
         self.command_buffers = command_buffers;
+    }
+}
+impl Drop for VkApplication {
+    fn drop(&mut self) {
+        self.cleanup_swapchain();
+
+        let device = self.vk_context.device();
+        self.in_flight_frames.destroy(device);
+        unsafe {
+            device.destroy_descriptor_pool(self.descriptor_pool, None);
+            device.destroy_descriptor_set_layout(self.descriptor_set_layout, None);
+            self.uniform_buffer_memories
+                .iter()
+                .for_each(|m| device.free_memory(*m, None));
+            self.uniform_buffers
+                .iter()
+                .for_each(|b| device.destroy_buffer(*b, None));
+            device.free_memory(self.index_buffer_memory, None);
+            device.destroy_buffer(self.index_buffer, None);
+            device.destroy_buffer(self.vertex_buffer, None);
+            device.free_memory(self.vertex_buffer_memory, None);
+            self.texture.destroy(device);
+            device.destroy_command_pool(self.transient_command_pool, None);
+            device.destroy_command_pool(self.command_pool, None);
+        }
     }
 }

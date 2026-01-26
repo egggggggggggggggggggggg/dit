@@ -135,7 +135,7 @@ impl InFlightFrames {
             current_frame: 0,
         }
     }
-    fn destroy(&self, device: &Device) {
+    pub fn destroy(&self, device: &Device) {
         self.sync_objects.iter().for_each(|o| o.destroy(device));
     }
     //Returns the next resource

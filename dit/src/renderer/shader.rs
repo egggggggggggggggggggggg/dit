@@ -38,3 +38,46 @@ impl Vertex {
         [position_desc, uv_desc]
     }
 }
+pub struct InstanceData {
+    pub pos: [f32; 2],
+    pub size: [f32; 2],
+    pub uv: [f32; 4],
+    pub fg: [u8; 4],
+    pub bg: [u8; 4],
+}
+impl InstanceData {
+    fn binding_description() -> vk::VertexInputBindingDescription {
+        vk::VertexInputBindingDescription::default()
+            .binding(1)
+            .stride(size_of::<InstanceData>() as _)
+            .input_rate(vk::VertexInputRate::INSTANCE)
+    }
+    fn attribute_description() -> [vk::VertexInputAttributeDescription; 5] {
+        let pos_desc = vk::VertexInputAttributeDescription::default()
+            .binding(1)
+            .location(2)
+            .format(vk::Format::R32G32_SFLOAT)
+            .offset(offset_of!(InstanceData, pos) as _);
+        let size_desc = vk::VertexInputAttributeDescription::default()
+            .binding(1)
+            .location(3)
+            .format(vk::Format::R32G32_SFLOAT)
+            .offset(offset_of!(InstanceData, size) as _);
+        let uv_desc = vk::VertexInputAttributeDescription::default()
+            .binding(0)
+            .location(4)
+            .format(vk::Format::R32G32_SFLOAT)
+            .offset(offset_of!(InstanceData, uv) as _);
+        let fg_desc = vk::VertexInputAttributeDescription::default()
+            .binding(1)
+            .location(5)
+            .format(vk::Format::R32G32B32_SFLOAT)
+            .offset(offset_of!(InstanceData, fg) as _);
+        let bg_desc = vk::VertexInputAttributeDescription::default()
+            .binding(1)
+            .location(6)
+            .format(vk::Format::R32G32B32_SFLOAT)
+            .offset(offset_of!(InstanceData, bg) as _);
+        [pos_desc, uv_desc, size_desc, fg_desc, bg_desc]
+    }
+}
