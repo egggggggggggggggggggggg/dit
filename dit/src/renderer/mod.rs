@@ -123,6 +123,7 @@ impl ApplicationHandler for App {
                 self.instant = Some(Instant::now());
                 println!("FPS: {}", self.frame_counter);
                 self.frame_counter = 0;
+                self.vk_app.as_mut().unwrap().test_dynamic_buffer();
             }
         }
         self.frame_counter += 1;

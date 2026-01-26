@@ -1,4 +1,8 @@
-use std::{collections::HashMap, os::raw::c_void};
+use std::{
+    collections::HashMap,
+    fmt::{Debug, Display},
+    os::raw::c_void,
+};
 
 use crate::renderer::*;
 use ash::{Device, vk};
@@ -110,6 +114,8 @@ fn create_device_local_buffer_with_data<A, T: Copy>(
         let data_ptr = device
             .map_memory(staging_memory, 0, size, vk::MemoryMapFlags::empty())
             .unwrap();
+        println!("align of A{}", align_of::<A>());
+        println!("where data ptr is: {:?}", data_ptr);
         let mut align = ash::util::Align::new(data_ptr, align_of::<A>() as _, staging_mem_size);
         align.copy_from_slice(data);
         device.unmap_memory(staging_memory);
@@ -146,6 +152,7 @@ pub fn create_vertex_buffer(
     transfer_queue: vk::Queue,
     vertices: &[Vertex],
 ) -> (vk::Buffer, vk::DeviceMemory) {
+    println!("size of data: {}", size_of_val(vertices) as vk::DeviceSize);
     create_device_local_buffer_with_data::<u32, _>(
         vk_context,
         command_pool,
@@ -168,140 +175,12 @@ pub fn create_index_buffer(
         indices,
     )
 }
-#[derive(Clone, Copy)]
-pub struct DynamicVertexBuffer {
-    pub staging: Buffer,
-    pub device: Buffer,
-    pub capacity: u64,
-    pub write_offset: u64,
-    pub data_ptr: *mut c_void,
-}
-impl DynamicVertexBuffer {
-    pub fn new<A, T: Copy>(
-        vk_context: &VkContext,
-        command_pool: vk::CommandPool,
-        transfer_queue: vk::Queue,
-        usage: vk::BufferUsageFlags,
-        allocation_size: u64,
-        data: &[T],
-    ) -> Self {
-        //pre allocation approach
-        let device = vk_context.device();
-        let size = size_of_val(data) as vk::DeviceSize;
-        if size > allocation_size {
-            panic!("Allocated space was less than the size of data");
-        }
-        let (staging_buffer, staging_memory, staging_mem_size) = create_buffer(
-            vk_context,
-            allocation_size,
-            vk::BufferUsageFlags::TRANSFER_SRC,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        );
-        //keep it mapped as data must be continously written to it
-
-        let data_ptr = unsafe {
-            let data_ptr = device
-                .map_memory(
-                    staging_memory,
-                    0,
-                    allocation_size,
-                    vk::MemoryMapFlags::empty(),
-                )
-                .unwrap();
-            let mut align = ash::util::Align::new(data_ptr, align_of::<A>() as _, staging_mem_size);
-            align.copy_from_slice(data);
-            data_ptr
-        };
-        let (buffer, memory, memory_size) = create_buffer(
-            vk_context,
-            allocation_size,
-            vk::BufferUsageFlags::TRANSFER_DST | usage,
-            vk::MemoryPropertyFlags::DEVICE_LOCAL,
-        );
-        copy_buffer(
-            device,
-            command_pool,
-            transfer_queue,
-            staging_buffer,
-            buffer,
-            allocation_size,
-            0,
-            0,
-        );
-        //copies the data over to
-        let staging = Buffer {
-            buffer: staging_buffer,
-            memory: staging_memory,
-            memory_size: staging_mem_size,
-        };
-        let device = Buffer {
-            buffer,
-            memory,
-            memory_size,
-        };
-        //len might be the wrong approach here as we want the number of bytes not elements
-        Self {
-            staging,
-            device,
-            capacity: allocation_size,
-            write_offset: size_of_val(data) as u64,
-            data_ptr,
-        }
-        //creates a simple staging buffer for transfer
-    }
-
-    pub fn copy_new_data<A, T: Copy>(
-        &mut self,
-        vk_context: &VkContext,
-        command_pool: vk::CommandPool,
-        transfer_queue: vk::Queue,
-        new_data: &[T],
-    ) -> bool {
-        //if the new data to copy is bigger than the allocated size return a bool signal a reallocation
-        //the application must then itself determine the appropiate new allocation size
-        let write_offset = self.write_offset;
-        let size = size_of_val(new_data) as vk::DeviceSize;
-        if (size + write_offset) > self.capacity {
-            return false;
-        }
-        let device = vk_context.device();
-        let dst = unsafe { (self.data_ptr as *mut u8).add(write_offset as usize) };
-        let mut align = unsafe {
-            ash::util::Align::new(
-                dst as *mut c_void,
-                align_of::<A>() as u64,
-                self.capacity - write_offset,
-            )
-        };
-        align.copy_from_slice(new_data);
-        copy_buffer(
-            device,
-            command_pool,
-            transfer_queue,
-            self.staging.buffer,
-            self.device.buffer,
-            size,
-            write_offset,
-            write_offset,
-        );
-        self.write_offset += size as u64;
-        true
-    }
-    //writes new data to an offset that already has data written to it
-
-    pub fn override_data() {}
-
-    pub fn reallocate(&mut self) {}
-    pub fn destroy(&self) {}
-}
-
-struct TransferBuffer {}
 
 #[derive(Copy, Clone)]
 pub struct Buffer {
-    buffer: vk::Buffer,
-    memory: vk::DeviceMemory,
-    memory_size: vk::DeviceSize,
+    pub buffer: vk::Buffer,
+    pub memory: vk::DeviceMemory,
+    pub memory_size: vk::DeviceSize,
 }
 impl Buffer {
     pub fn new(
@@ -340,15 +219,15 @@ impl Buffer {
     }
 }
 type Offset = u64;
-struct DynamicBuffer {
-    allocation_table: HashMap<Offset, Allocation>,
-    device: Buffer,
-    staging: Buffer,
-    data_ptr: *mut c_void,
+pub struct DynamicBuffer {
+    pub allocation_table: HashMap<Offset, Allocation>,
+    pub device: Buffer,
+    pub staging: Buffer,
+    pub data_ptr: *mut c_void,
 }
 
 impl DynamicBuffer {
-    fn new(allocation_size: u64, vk_context: &VkContext, usage: vk::BufferUsageFlags) -> Self {
+    pub fn new(allocation_size: u64, vk_context: &VkContext, usage: vk::BufferUsageFlags) -> Self {
         let device = vk_context.device();
         let staging = Buffer::new(
             vk_context,
@@ -379,14 +258,12 @@ impl DynamicBuffer {
             data_ptr,
         }
     }
-    fn resize() {}
-    fn destroy(self) {}
-    fn full_copy<A, T: Copy>(
+    pub fn full_copy<A, T: Copy + Debug>(
         &mut self,
-        data: &[T],
         vk_context: &VkContext,
         command_pool: vk::CommandPool,
         transfer_queue: vk::Queue,
+        data: &[T],
     ) {
         let device = vk_context.device();
         unsafe {
@@ -407,6 +284,16 @@ impl DynamicBuffer {
             0,
             0,
         );
+    }
+    fn resize() {}
+    pub fn destroy(&self, device: &Device) {
+        unsafe {
+            device.unmap_memory(self.device.memory);
+            device.destroy_buffer(self.device.buffer, None);
+            device.destroy_buffer(self.staging.buffer, None);
+            device.free_memory(self.staging.memory, None);
+            device.free_memory(self.device.memory, None);
+        }
     }
 }
 
@@ -429,6 +316,4 @@ struct Allocation {
 //persistent mapping of the staging buffer is fine hence the need to store the data ptr in the struct for access
 //synchronization will not be managed by the buffer itself, this is up to the user to manually set it up
 
-fn copy_between_buffers() {
-    
-}
+fn copy_between_buffers() {}

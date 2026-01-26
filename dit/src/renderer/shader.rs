@@ -11,7 +11,7 @@ pub fn create_shader_module(device: &Device, code: &[u32]) -> vk::ShaderModule {
     let create_info = vk::ShaderModuleCreateInfo::default().code(code);
     unsafe { device.create_shader_module(&create_info, None).unwrap() }
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Vertex {
     pub pos: [f32; 2],

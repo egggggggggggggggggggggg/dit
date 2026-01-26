@@ -40,8 +40,7 @@ pub struct VkApplication {
     pub color_texture: texture::Texture,
     pub texture: texture::Texture,
     pub model_index_count: usize,
-    pub vertex_buffer: vk::Buffer,
-    pub vertex_buffer_memory: vk::DeviceMemory,
+    pub vertex_buffer: DynamicBuffer,
     pub index_buffer: vk::Buffer,
     pub index_buffer_memory: vk::DeviceMemory,
     pub uniform_buffers: Vec<vk::Buffer>,
@@ -119,7 +118,6 @@ impl VkApplication {
             properties,
             msaa_samples,
         );
-        println!("image_views length {}", swapchain_image_views.len());
         let swapchain_framebuffers = create_framebuffers(
             vk_context.device(),
             &swapchain_image_views,
@@ -127,16 +125,30 @@ impl VkApplication {
             render_pass,
             properties,
         );
-        println!("frame_buffer length: {}", swapchain_framebuffers.len());
 
         let texture = create_texture_image(&vk_context, command_pool, graphics_queue);
         let (vertices, indices) = Self::load_model();
-        let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(
+
+        let mut dynamic_vertex_buffer = DynamicBuffer::new(
+            (byte_size(&vertices) * 4) as vk::DeviceSize,
             &vk_context,
-            transient_command_pool,
+            vk::BufferUsageFlags::VERTEX_BUFFER,
+        );
+        dynamic_vertex_buffer.full_copy::<u32, Vertex>(
+            &vk_context,
+            command_pool,
             graphics_queue,
             &vertices,
         );
+        let device_buffer = dynamic_vertex_buffer.device;
+
+        let (vertex_buffer, vertex_buffer_memory) = (device_buffer.buffer, device_buffer.memory);
+        // let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(
+        //     &vk_context,
+        //     transient_command_pool,
+        //     graphics_queue,
+        //     &vertices,
+        // );
         let (index_buffer, index_buffer_memory) = create_index_buffer(
             &vk_context,
             transient_command_pool,
@@ -197,8 +209,7 @@ impl VkApplication {
             color_texture,
             texture,
             model_index_count: indices.len(),
-            vertex_buffer,
-            vertex_buffer_memory,
+            vertex_buffer: dynamic_vertex_buffer,
             index_buffer,
             index_buffer_memory,
             uniform_buffers,
@@ -302,8 +313,35 @@ impl VkApplication {
                 _ => {}
             }
         }
-
         false
+    }
+    pub fn test_dynamic_buffer(&mut self) {
+        let vertices = vec![
+            Vertex {
+                pos: [-10.0, -3.0],
+                uv: [-2.0, -2.0],
+            },
+            Vertex {
+                pos: [-8.0, 12.0],
+                uv: [-1.0, 3.0],
+            },
+            Vertex {
+                pos: [6.0, 9.0],
+                uv: [4.0, 2.0],
+            },
+            Vertex {
+                pos: [12.0, -6.0],
+                uv: [5.0, -1.0],
+            },
+        ];
+
+        self.vertex_buffer.full_copy::<u32, _>(
+            &self.vk_context,
+            self.command_pool,
+            self.graphics_queue,
+            &vertices,
+        );
+        //acquire the buffer
     }
     fn cleanup_swapchain(&mut self) {
         let device = self.vk_context.device();
@@ -365,7 +403,7 @@ impl VkApplication {
             &swapchain_framebuffers,
             render_pass,
             properties,
-            self.vertex_buffer,
+            self.vertex_buffer.device.buffer,
             self.index_buffer,
             self.model_index_count,
             layout,
@@ -403,8 +441,7 @@ impl Drop for VkApplication {
                 .for_each(|b| device.destroy_buffer(*b, None));
             device.free_memory(self.index_buffer_memory, None);
             device.destroy_buffer(self.index_buffer, None);
-            device.destroy_buffer(self.vertex_buffer, None);
-            device.free_memory(self.vertex_buffer_memory, None);
+            self.vertex_buffer.destroy(device);
             self.texture.destroy(device);
             device.destroy_command_pool(self.transient_command_pool, None);
             device.destroy_command_pool(self.command_pool, None);

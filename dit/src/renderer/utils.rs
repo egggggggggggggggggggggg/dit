@@ -28,3 +28,6 @@ pub fn find_memory_type(
     }
     panic!("Failed to find suitable memory type.")
 }
+pub fn byte_size<T>(data: &Vec<T>) -> usize {
+    data.len() * std::mem::size_of::<T>()
+}

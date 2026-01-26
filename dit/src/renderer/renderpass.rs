@@ -1,5 +1,5 @@
 use crate::renderer::{
-    buffer::DynamicVertexBuffer, swapchain::SwapchainProperties, texture::Texture,
+    buffer::DynamicBuffer, swapchain::SwapchainProperties, texture::Texture,
     vkapp::MAX_FRAMES_IN_FLIGHT,
 };
 use ash::{Device, vk};
@@ -154,37 +154,37 @@ impl Iterator for InFlightFrames {
         Some(next)
     }
 }
-#[derive(Clone, Copy)]
-struct FrameResources {
-    sync_object: SyncObjects,
-    dynamic_vertex_buffer: DynamicVertexBuffer,
-}
-impl FrameResources {
-    fn destroy(&self, device: &Device) {
-        self.sync_object.destroy(device);
-        self.dynamic_vertex_buffer.destroy();
-    }
-}
-struct FramesInFlight {
-    frame_resources: Vec<FrameResources>,
-    current_frame: usize,
-}
-impl FramesInFlight {
-    fn new(frame_resources: Vec<FrameResources>) -> Self {
-        Self {
-            frame_resources,
-            current_frame: 0,
-        }
-    }
-    fn destroy(&self, device: &Device) {
-        self.frame_resources.iter().for_each(|o| o.destroy(device));
-    }
-}
-impl Iterator for FramesInFlight {
-    type Item = FrameResources;
-    fn next(&mut self) -> Option<Self::Item> {
-        let frame_resources = self.frame_resources[self.current_frame];
-        self.current_frame = (self.current_frame + 1) & self.frame_resources.len();
-        Some(frame_resources)
-    }
-}
+// #[derive(Clone, Copy)]
+// struct FrameResources {
+//     sync_object: SyncObjects,
+//     dynamic_vertex_buffer: DynamicBuffer,
+// }
+// impl FrameResources {
+//     fn destroy(&self, device: &Device) {
+//         self.sync_object.destroy(device);
+//         self.dynamic_vertex_buffer.destroy();
+//     }
+// }
+// struct FramesInFlight {
+//     frame_resources: Vec<FrameResources>,
+//     current_frame: usize,
+// }
+// impl FramesInFlight {
+//     fn new(frame_resources: Vec<FrameResources>) -> Self {
+//         Self {
+//             frame_resources,
+//             current_frame: 0,
+//         }
+//     }
+//     fn destroy(&self, device: &Device) {
+//         self.frame_resources.iter().for_each(|o| o.destroy(device));
+//     }
+// }
+// impl Iterator for FramesInFlight {
+//     type Item = FrameResources;
+//     fn next(&mut self) -> Option<Self::Item> {
+//         let frame_resources = self.frame_resources[self.current_frame];
+//         self.current_frame = (self.current_frame + 1) & self.frame_resources.len();
+//         Some(frame_resources)
+//     }
+// }

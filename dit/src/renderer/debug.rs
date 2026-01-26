@@ -1,4 +1,4 @@
-pub const ENABLE_VALIDATION_LAYERS: bool = true;
+pub const ENABLE_VALIDATION_LAYERS: bool = false;
 
 use ash::{Entry, Instance, ext::debug_utils, vk};
 use std::ffi::{CStr, CString};
