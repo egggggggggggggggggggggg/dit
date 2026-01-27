@@ -10,7 +10,6 @@ pub fn pick_physical_device(
     surface: &surface::Instance,
     surface_khr: vk::SurfaceKHR,
 ) -> (vk::PhysicalDevice, QueueFamiliesIndices) {
-    println!("printing instance info");
     let devices = unsafe { instance.enumerate_physical_devices().unwrap() };
     let device = devices
         .into_iter()
@@ -23,7 +22,6 @@ pub fn pick_physical_device(
         transfer_index: transfer.unwrap(),
     };
     let props = unsafe { instance.get_physical_device_properties(device) };
-    println!("properties of device: {:?}", props.limits);
     (device, queue_families_indices)
 }
 

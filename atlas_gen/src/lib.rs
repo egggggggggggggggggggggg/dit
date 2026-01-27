@@ -1,4 +1,4 @@
-mod allocator;
+pub mod allocator;
 pub mod atlas;
 use core::{f32, panic};
 use std::time::Instant;
@@ -11,7 +11,7 @@ use math::calc::{Polynomial, Range, bisection, median};
 use math::lalg::{BezierCurve, BinaryVector, Vec2};
 
 use crate::allocator::ShelfAllocator;
-pub fn entry() {
+pub fn entry() -> Atlas<char, Rgb<u8>, ShelfAllocator> {
     let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
     let atlas_allocator = ShelfAllocator::new(512, 512);
     let mut texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator> =
@@ -26,8 +26,8 @@ pub fn entry() {
             draw_msdf_glyph(contour, 32, font.head.units_per_em, header);
         texture_atlas.add_image(c, &drawn_glyph).unwrap();
     }
-    println!("time_elapsed: {:?}", current.elapsed().as_millis());
-    texture_atlas.image.save("../texture_atlas.png").unwrap();
+    texture_atlas.image.save("../texture_atlas2.png").unwrap();
+    texture_atlas
 }
 fn sample_atlas(texture_atlas: &Atlas<char, Rgb<u8>, ShelfAllocator>, char: char) {
     if let Some(entry) = texture_atlas.table.get(&char) {

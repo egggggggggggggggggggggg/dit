@@ -35,7 +35,6 @@ impl TtfFont {
         )?;
         let cmap = parse_cmap(&data, &tables)?;
         let glyf = Glyf::new(offsets, &tables);
-        println!("finished parsing the required tables");
         Ok(Self {
             data,
             tables,

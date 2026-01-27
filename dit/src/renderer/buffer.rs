@@ -114,8 +114,7 @@ fn create_device_local_buffer_with_data<A, T: Copy>(
         let data_ptr = device
             .map_memory(staging_memory, 0, size, vk::MemoryMapFlags::empty())
             .unwrap();
-        println!("align of A{}", align_of::<A>());
-        println!("where data ptr is: {:?}", data_ptr);
+
         let mut align = ash::util::Align::new(data_ptr, align_of::<A>() as _, staging_mem_size);
         align.copy_from_slice(data);
         device.unmap_memory(staging_memory);
@@ -152,7 +151,6 @@ pub fn create_vertex_buffer(
     transfer_queue: vk::Queue,
     vertices: &[Vertex],
 ) -> (vk::Buffer, vk::DeviceMemory) {
-    println!("size of data: {}", size_of_val(vertices) as vk::DeviceSize);
     create_device_local_buffer_with_data::<u32, _>(
         vk_context,
         command_pool,

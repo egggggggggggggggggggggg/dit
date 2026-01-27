@@ -132,7 +132,6 @@ pub fn create_swapchain_and_images(
         }
         preferred
     };
-    println!("image_count: {}", image_count);
     let graphics = queue_families_indices.graphics_index;
     let present = queue_families_indices.present_index;
     let families_indices = [graphics, present];

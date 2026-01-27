@@ -45,13 +45,20 @@ pub struct Screen {
     pub max_cells: usize,
     pub damaged: Vec<usize>,
 }
+pub fn rand_letter() {}
+
 impl Screen {
     pub fn new(max_rows: usize, max_cells: usize) -> Self {
         let mut rows = Vec::new();
         for _ in 0..max_rows {
             let mut cells = Vec::new();
             for _ in 0..max_cells {
-                cells.push(Cell::default());
+                cells.push(Cell {
+                    glyph: Some('b'),
+                    fg: [0, 0, 0, 0],
+                    bg: [0, 0, 0, 0],
+                    flags: CellFlags::empty(),
+                });
             }
             rows.push(Row { cells });
         }
@@ -64,7 +71,7 @@ impl Screen {
         }
     }
     pub fn change(&mut self, key_event: &KeyEvent, pressed_keys: &HashSet<KeyCode>) {
-        if pressed_keys.contains(&KeyCode::Delete) {
+        if pressed_keys.contains(&KeyCode::Backspace) {
             let row = self.rows.get(self.cursor.1).unwrap();
             let mut cell = *row.cells.get(self.cursor.0).unwrap();
             cell.delete_glyph();
@@ -96,7 +103,7 @@ impl Screen {
             Some(str) => {
                 let chars: Vec<char> = str.chars().collect();
                 if chars.len() == 1 {
-                    let mut cell = *self.get_cell();
+                    let mut cell = *self.get_cell_mut();
                     cell.set_glyph(chars[0]);
                     self.damaged.push(self.cursor.1);
                     self.move_ahead();
@@ -106,7 +113,7 @@ impl Screen {
         }
     }
     fn move_ahead(&mut self) {
-        if self.cursor.0 < self.max_cells {
+        if self.cursor.0 + 1 < self.max_cells {
             self.cursor.0 += 1;
         } else if self.cursor.1 < self.max_rows {
             self.cursor.1 += 1;
@@ -119,9 +126,8 @@ impl Screen {
             self.cursor.0 -= 1;
         }
     }
-    fn get_cell(&mut self) -> &Cell {
-        let row = self.rows.get(self.cursor.1).unwrap();
-        row.cells.get(self.cursor.0).unwrap()
+    fn get_cell_mut(&mut self) -> &mut Cell {
+        &mut self.rows[self.cursor.1].cells[self.cursor.0]
     }
 }
 #[derive(Default, Clone, Copy)]

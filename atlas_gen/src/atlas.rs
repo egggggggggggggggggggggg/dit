@@ -15,12 +15,14 @@ pub struct AtlasEntry {
 impl AtlasEntry {
     pub fn uv(&self, atlas_width: u32, atlas_height: u32) -> ([f32; 2], [f32; 2]) {
         let u0 = self.x as f32 / atlas_width as f32;
-        let v0 = self.y as f32 / atlas_height as f32;
         let u1 = (self.x + self.width) as f32 / atlas_width as f32;
-        let v1 = (self.y + self.height) as f32 / atlas_height as f32;
+        let v0 = self.y as f32 / atlas_height as f32; // top
+        let v1 = (self.y + self.height) as f32 / atlas_height as f32; // bottom
+
         ([u0, v0], [u1, v1])
     }
 }
+
 //evictable atlas cache
 pub struct Atlas<T, P, A>
 where
@@ -30,7 +32,11 @@ where
 {
     pub image: ImageBuffer<P, Vec<u8>>,
     pub table: HashMap<T, AtlasEntry>,
+    //simple cache for now
+    pub uv_table: HashMap<T, ([f32; 2], [f32; 2])>,
     allocator: A,
+    width: u32,
+    height: u32,
 }
 
 impl<T, P, A> Atlas<T, P, A>
@@ -43,7 +49,10 @@ where
         Self {
             image: ImageBuffer::new(width, height),
             table: HashMap::new(),
+            uv_table: HashMap::new(),
             allocator,
+            width,
+            height,
         }
     }
     pub fn add_image(&mut self, key: T, src: &ImageBuffer<P, Vec<u8>>) -> Result<(), &'static str> {
@@ -65,6 +74,15 @@ where
             },
         );
         Ok(())
+    }
+    pub fn get_uv(&mut self, key: T) -> ([f32; 2], [f32; 2]) {
+        if let Some(uv) = self.uv_table.get(&key) {
+            return *uv;
+        } else {
+            let uv = self.table.get(&key).unwrap().uv(self.width, self.height);
+            self.uv_table.insert(key, uv);
+            uv
+        }
     }
     pub fn serialize_metadata(&mut self, path: &'static str) {}
     // Doesn't change the image just removes the table entry that gives access to it

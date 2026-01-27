@@ -54,7 +54,7 @@ pub struct VkApplication {
 //Allows for pre allocating space to the vertex buffer
 //Prevents excession reallocation later on
 impl VkApplication {
-    pub fn new(window: &Window, buffer_alloc_size: u64) -> Self {
+    pub fn new(window: &Window, mesh: &Mesh) -> Self {
         let entry = unsafe { Entry::load().unwrap() };
         let instance = create_instance(&entry, window);
         let surface = surface::Instance::new(&entry, &instance);
@@ -68,7 +68,6 @@ impl VkApplication {
             )
             .unwrap()
         };
-        println!("working now");
         let debug_report_callback = setup_debug_messenger(&entry, &instance);
         let (physical_device, queue_families_indices) =
             pick_physical_device(&instance, &surface, surface_khr);
@@ -127,8 +126,7 @@ impl VkApplication {
         );
 
         let texture = create_texture_image(&vk_context, command_pool, graphics_queue);
-        let (vertices, indices) = Self::load_model();
-
+        let (vertices, indices) = (&mesh.vertices, &mesh.indices);
         let mut dynamic_vertex_buffer = DynamicBuffer::new(
             (byte_size(&vertices) * 4) as vk::DeviceSize,
             &vk_context,
@@ -140,9 +138,7 @@ impl VkApplication {
             graphics_queue,
             &vertices,
         );
-        let device_buffer = dynamic_vertex_buffer.device;
-
-        let (vertex_buffer, vertex_buffer_memory) = (device_buffer.buffer, device_buffer.memory);
+        let vertex_buffer = dynamic_vertex_buffer.device.buffer;
         // let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(
         //     &vk_context,
         //     transient_command_pool,

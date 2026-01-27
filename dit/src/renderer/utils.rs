@@ -6,7 +6,6 @@ pub fn load<P: AsRef<Path>>(path: P) -> Cursor<Vec<u8>> {
 
     let mut buf = Vec::new();
     let fullpath = Path::new("assets").join(path);
-    println!("{:?}", fullpath);
     let mut file = File::open(fullpath).unwrap();
     file.read_to_end(&mut buf).unwrap();
     Cursor::new(buf)
