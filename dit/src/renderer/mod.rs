@@ -110,7 +110,6 @@ impl ApplicationHandler for App {
         }
     }
     fn about_to_wait(&mut self, _: &ActiveEventLoop) {
-        self.check_damage();
         let app = self.vk_app.as_mut().unwrap();
         let window = self.window.as_ref().unwrap();
         if app.dirty_swapchain {

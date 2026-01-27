@@ -18,9 +18,8 @@ fn main() {
 
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);
-    let mut app = App::new(27, 48);
+    let mut app = App::new(30, 96);
     //this shouldnt be some arbitaray number but based off a standard like from the font file or smth else
-    
     app.generate_screen_mesh();
     event_loop.run_app(&mut app).unwrap();
 }

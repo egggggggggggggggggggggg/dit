@@ -77,8 +77,8 @@ pub fn create_texture_image(
 
     let sampler = {
         let sampler_info = vk::SamplerCreateInfo::default()
-            .mag_filter(vk::Filter::LINEAR)
-            .min_filter(vk::Filter::LINEAR)
+            .mag_filter(vk::Filter::NEAREST)
+            .min_filter(vk::Filter::NEAREST)
             .address_mode_u(vk::SamplerAddressMode::REPEAT)
             .address_mode_v(vk::SamplerAddressMode::REPEAT)
             .address_mode_w(vk::SamplerAddressMode::REPEAT)
@@ -88,7 +88,7 @@ pub fn create_texture_image(
             .unnormalized_coordinates(false)
             .compare_enable(false)
             .compare_op(vk::CompareOp::ALWAYS)
-            .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
+            .mipmap_mode(vk::SamplerMipmapMode::NEAREST)
             .mip_lod_bias(0.0)
             .min_lod(0.0)
             .max_lod(max_mip_levels as _);

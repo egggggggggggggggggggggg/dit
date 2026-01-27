@@ -54,7 +54,7 @@ impl Screen {
             let mut cells = Vec::new();
             for _ in 0..max_cells {
                 cells.push(Cell {
-                    glyph: Some('b'),
+                    glyph: Some('a'),
                     fg: [0, 0, 0, 0],
                     bg: [0, 0, 0, 0],
                     flags: CellFlags::empty(),
@@ -158,3 +158,170 @@ bitflags::bitflags!(
     }
 );
 type Color = [u8; 4];
+
+//What the screen needs to accomplish
+//Handles a cursor that moves across the screen
+//Row cache to cache previous row text for faster reassembling of vertieces
+//Updating the vertex buffer
+//Cursor tracking along with highlighting text.
+
+enum CursorState {
+    Blinking,
+    Highlight,
+    Solid,
+    Blank,
+}
+struct Cursor {
+    x_limit: u32,
+    y_limit: u32,
+    x: u32,
+    y: u32,
+    cursor_state: CursorState,
+}
+impl Cursor {
+    fn new(x_limit: u32, y_limit: u32) -> Self {
+        Self {
+            x_limit,
+            y_limit,
+            x: 0,
+            y: 0,
+            cursor_state: CursorState::Solid,
+        }
+    }
+    //bounds updating
+    fn update_bounds(&mut self, x_limit: u32, y_limit: u32) {
+        self.x_limit = x_limit;
+        self.y_limit = y_limit;
+    }
+
+    //these are for text insertion.
+    //might be pointless to have
+    fn move_ahead(&mut self, spaces: u32) {
+        if self.x + spaces > self.x_limit {
+            //calculate the rows to move down;
+            let spaces_left = (self.x + spaces) - self.x_limit;
+            let rows_to_move = spaces_left % self.x_limit;
+            let cell_offset = spaces_left - (rows_to_move * self.x_limit);
+            self.move_down(rows_to_move);
+            self.x = cell_offset;
+        } else {
+            self.x += spaces;
+        }
+    }
+    fn move_back(&mut self, spaces: u32) {
+        //this means that the new cursor will be less than 0 or smth
+        if self.x < spaces {
+            let spaces_left = spaces - self.x;
+            let rows_to_move = spaces_left & self.x_limit;
+            let cell_offset = spaces_left - (rows_to_move * self.x_limit);
+            self.move_up(rows_to_move);
+            self.x = self.x_limit - cell_offset;
+        } else {
+            self.x -= spaces;
+        }
+    }
+    //When true is returned it means the screen has to move up with the specified distance;
+    fn move_up(&mut self, spaces: u32) -> (bool, u32) {
+        if self.y < spaces {
+            //means itll go back to 0
+            return (true, spaces - self.y);
+        } else {
+            self.y -= spaces;
+        }
+        (false, 0)
+    }
+    fn move_down(&mut self, spaces: u32) -> (bool, u32) {
+        //sends back a signal indicating if they have to extend the screen down
+        if self.y + spaces > self.y_limit {
+            let rows_to_move = (self.y + spaces) - self.y_limit;
+            return (true, rows_to_move);
+        } else {
+            self.y += spaces;
+        }
+        (false, 0)
+    }
+
+    //this is for when the user uses a mouse to move the cursor to somewhere else
+    //indicates if the op succeeded via a boolean
+    fn change_position(&mut self, new_x: u32, new_y: u32) -> bool {
+        if new_x > self.x_limit || new_y > self.y_limit {
+            return false;
+        } else {
+            self.x = new_x;
+            self.y = new_y;
+            return true;
+        }
+    }
+
+    fn change_state(&mut self, new_state: CursorState) {
+        self.cursor_state = new_state;
+    }
+}
+struct TCell {
+    glyph: char,
+    fg: Color,
+    bg: Color,
+    flags: CellFlags,
+}
+impl Default for TCell {
+    fn default() -> Self {
+        Self {
+            glyph: ' ',
+            fg: [0, 0, 0, 0],
+            bg: [0, 0, 0, 0],
+            flags: CellFlags::empty(),
+        }
+    }
+}
+impl TCell {
+    fn change_glyph(&mut self, new_glyph: char) {
+        self.glyph = new_glyph;
+    }
+}
+//contains dim parameters specifying the current size of the terminal screen
+struct TScreen {
+    //when a row gets evicted from the screen it gets cached to avoid having to pull it back up
+    row_cache: HashMap<usize, TRow>,
+    rows: Vec<TRow>,
+    cell_count: u32, //specifies the amount of cells in a given row
+    row_count: u32,
+    cursor: Cursor, //where the cursor is in the screen
+    raw: Vec<char>, //contains the raw characters within the whole terminal session
+}
+impl TScreen {
+    fn new(row_count: u32, cell_count: u32) {
+        let row_cache = HashMap::new();
+        let mut rows = Vec::with_capacity(row_count as usize);
+        for i in 0..row_count {
+            let mut cells = Vec::new();
+            for _ in 0..cell_count {
+                cells.push(TCell::default());
+            }
+            let row = TRow {
+                cells,
+                identifier: i as usize,
+                pos_id: i as usize,
+            };
+            rows.push(row);
+        }
+        Self {
+            row_cache,
+            rows,
+            cell_count,
+            row_count,
+            cursor: Cursor::new(cell_count, row_count),
+            raw: Vec::new(),
+        };
+    }
+    fn update_cell(&mut self, row_id: usize, cell_id: usize, new_cell: TCell) {
+        let row = &self.rows[row_id];
+        let cell = &row.cells[cell_id];
+    }
+}
+//identifier is the unique buffer id for when scrollback is needed
+//pos_id is relative to its currently position in the terminal screen
+struct TRow {
+    cells: Vec<TCell>,
+    identifier: usize,
+    pos_id: usize,
+}
