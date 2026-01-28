@@ -134,7 +134,7 @@ impl Glyf {
         };
         Ok(args)
     }
-    pub fn get_glyf(&mut self, gid: GlyphId) -> Option<&Arc<Glyph>> {
+    pub fn get_glyf(&self, gid: GlyphId) -> Option<&Arc<Glyph>> {
         self.glyph_cache.get(&gid)
     }
     pub fn parse_glyf_block(&mut self, gid: GlyphId, cursor: &mut Cursor) -> Result<(), Error> {

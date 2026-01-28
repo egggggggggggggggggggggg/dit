@@ -59,7 +59,7 @@ impl TtfFont {
         let res = self.glyf.get_glyf(gid);
         Ok(res)
     }
-    pub fn lookup(&mut self, c: u32) -> Option<u32> {
+    pub fn lookup(&self, c: u32) -> Option<u32> {
         for g in &self.cmap {
             if g.start_char <= c && c <= g.end_char {
                 return Some(g.start_glyph + (c - g.start_char));
@@ -93,6 +93,13 @@ impl TtfFont {
             }
         }
         Ok(contours)
+    }
+    pub fn get_glyf_header(&self, gid: u16) -> Option<&GlyphHeader> {
+        if let Some(glyf) = self.glyf.get_glyf(gid) {
+            return Some(glyf.get_header());
+        } else {
+            return None;
+        }
     }
     pub fn scaled_hhea() {}
 }
