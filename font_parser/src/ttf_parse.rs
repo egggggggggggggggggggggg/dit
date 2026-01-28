@@ -8,6 +8,7 @@ pub use crate::table::*;
 use math::lalg::{BezierCurve, Transform, transform_curve};
 use std::fs::File;
 use std::io::Read;
+#[derive(Debug)]
 pub struct TtfFont {
     data: Vec<u8>,
     pub tables: HashMap<[u8; 4], TableRecord>,
@@ -15,6 +16,8 @@ pub struct TtfFont {
     pub maxp: Maxp,
     pub cmap: Vec<CMapGroup>,
     pub glyf: Glyf,
+    pub hhea: Hhea,
+    pub hmtx: Hmtx,
 }
 
 impl TtfFont {
@@ -25,14 +28,17 @@ impl TtfFont {
         };
         let mut cursor = Cursor::set(&mut data, 0);
         let tables = parse_header(&mut cursor)?;
-        let head = Head::new(&data, &tables)?;
-        let maxp = Maxp::new(&data, &tables)?;
+        let head = Head::parse(&data, &tables)?;
+        let maxp = Maxp::parse(&data, &tables)?;
         let offsets = parse_loca(
             &data,
             &tables,
-            maxp.glyph_count as usize,
+            maxp.num_glyphs as usize,
             head.index_to_loc_format,
         )?;
+        let num_glyphs = maxp.num_glyphs;
+        let hhea = Hhea::parse(&data, &tables)?;
+        let hmtx = Hmtx::parse(&data, &tables, hhea.number_of_long_hor_metrics, num_glyphs)?;
         let cmap = parse_cmap(&data, &tables)?;
         let glyf = Glyf::new(offsets, &tables);
         Ok(Self {
@@ -42,6 +48,8 @@ impl TtfFont {
             maxp,
             cmap,
             glyf,
+            hhea,
+            hmtx,
         })
     }
     pub fn parse_required() {}
@@ -86,6 +94,7 @@ impl TtfFont {
         }
         Ok(contours)
     }
+    pub fn scaled_hhea() {}
 }
 fn read_file(path: &str) -> std::io::Result<Vec<u8>> {
     let mut data = Vec::new();

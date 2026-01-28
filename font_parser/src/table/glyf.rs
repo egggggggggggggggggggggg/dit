@@ -88,6 +88,7 @@ pub struct Component {
     pub reference: Arc<Glyph>,
     pub transform_data: Transform,
 }
+#[derive(Debug)]
 pub struct Glyf {
     offsets: Vec<u32>,
     glyph_cache: GlyphCache,

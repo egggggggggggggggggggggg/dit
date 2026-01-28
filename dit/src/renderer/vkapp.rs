@@ -139,12 +139,6 @@ impl VkApplication {
             &vertices,
         );
         let vertex_buffer = dynamic_vertex_buffer.device.buffer;
-        // let (vertex_buffer, vertex_buffer_memory) = create_vertex_buffer(
-        //     &vk_context,
-        //     transient_command_pool,
-        //     graphics_queue,
-        //     &vertices,
-        // );
         let (index_buffer, index_buffer_memory) = create_index_buffer(
             &vk_context,
             transient_command_pool,

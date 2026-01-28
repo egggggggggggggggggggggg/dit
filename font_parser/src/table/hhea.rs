@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
-use crate::{error::Error, table::TableRecord, cursor::Cursor};
-
+use crate::{cursor::Cursor, error::Error, table::TableRecord};
+#[derive(Debug)]
 pub struct Hhea {
     pub major: u16,
     pub minor: u16,
@@ -19,8 +19,8 @@ pub struct Hhea {
     pub number_of_long_hor_metrics: u16,
 }
 impl Hhea {
-    pub fn parse(data: &[u8], table: HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
-        let rec = table.get(b"hhea").ok_or(Error::MissingTable("hhea"))?;
+    pub fn parse(data: &[u8], tables: &HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
+        let rec = tables.get(b"hhea").ok_or(Error::MissingTable("hhea"))?;
         let mut cursor = Cursor::set(data, rec.table_offset);
         let major = cursor.read_u16()?;
         let minor = cursor.read_u16()?;

@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
 use crate::{
+    cursor::Cursor,
     error::{Error, ParseError},
     table::TableRecord,
-    cursor::Cursor,
 };
 const MAGIC_NUMBER: u32 = 0x5F0F3CF5;
 #[derive(Debug)]
@@ -28,7 +28,7 @@ pub struct Head {
     pub glyph_data_format: i16,
 }
 impl Head {
-    pub fn new(data: &[u8], tables: &HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
+    pub fn parse(data: &[u8], tables: &HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
         let rec = tables.get(b"head").ok_or(Error::MissingTable("head"))?;
         let mut cursor = Cursor::set(data, rec.table_offset);
         let major = cursor.read_u16()?;

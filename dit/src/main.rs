@@ -15,7 +15,8 @@ fn main() {
     //load the config files
     //parse it and use those as the default parameters
     //for now use constants in place of the config
-
+    let ttf_font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
+    //pass this in to be used
     let event_loop = EventLoop::new().unwrap();
     event_loop.set_control_flow(ControlFlow::Poll);
     let mut app = App::new(30, 96);
@@ -23,7 +24,6 @@ fn main() {
     app.generate_screen_mesh();
     event_loop.run_app(&mut app).unwrap();
 }
-
 fn median<T>(a: T, b: T, c: T) -> T
 where
     T: Ord + Copy,

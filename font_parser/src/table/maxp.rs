@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use crate::{error::Error, table::TableRecord, cursor::Cursor};
+use crate::{cursor::Cursor, error::Error, table::TableRecord};
 
 #[derive(Debug)]
 pub struct Maxp {
     pub vers_major: u32,
     pub vers_minor: u32,
-    pub glyph_count: u16,
+    pub num_glyphs: u16,
     pub max_points: u16,
     pub max_contours: u16,
     pub max_composite_points: u16,
@@ -21,12 +21,12 @@ pub struct Maxp {
     pub max_component_depth: u16,
 }
 impl Maxp {
-    pub fn new(data: &[u8], tables: &HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
+    pub fn parse(data: &[u8], tables: &HashMap<[u8; 4], TableRecord>) -> Result<Self, Error> {
         let rec = tables.get(b"maxp").ok_or(Error::MissingTable("maxp"))?;
         let mut cursor = Cursor::set(data, rec.table_offset);
         let vers_major = cursor.read_u16()? as u32;
         let vers_minor = cursor.read_u16()? as u32;
-        let glyph_count = cursor.read_u16()?;
+        let num_glyphs = cursor.read_u16()?;
         let max_points = cursor.read_u16()?;
         let max_contours = cursor.read_u16()?;
         let max_composite_points = cursor.read_u16()?;
@@ -42,7 +42,7 @@ impl Maxp {
         Ok(Self {
             vers_major,
             vers_minor,
-            glyph_count,
+            num_glyphs,
             max_points,
             max_contours,
             max_composite_points,
