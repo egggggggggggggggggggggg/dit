@@ -6,7 +6,7 @@ use crate::{
     table::TableRecord,
 };
 const MAGIC_NUMBER: u32 = 0x5F0F3CF5;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Head {
     pub major: u16,
     pub minor: u16,

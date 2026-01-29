@@ -20,6 +20,7 @@ use command::*;
 use context::*;
 use debug::*;
 use device::*;
+use font_parser::TtfFont;
 use image::Rgb;
 use pipeline::*;
 use queue::*;
@@ -54,6 +55,7 @@ pub struct App {
     screen: Screen,
     glyph_mesh: Option<Mesh>,
     pub atlas: Atlas<char, Rgb<u8>, ShelfAllocator>,
+    pub ttf_font: TtfFont,
 }
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
@@ -143,6 +145,7 @@ pub fn get_uv(char: Option<char>) -> [f32; 4] {
 impl App {
     pub fn new(row_size: usize, cell_size: usize) -> Self {
         let atlas = atlas_gen::entry();
+        let ttf_font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
         Self {
             frame_counter: 0,
             glyph_mesh: None,
@@ -152,6 +155,7 @@ impl App {
             window: None,
             vk_app: None,
             atlas,
+            ttf_font,
         }
     }
     // //this should really have each row have its own instance data instead so we dont reconstruct the whole thing
@@ -234,24 +238,58 @@ impl App {
         }
         true
     }
+    //Inlinining evryething for now for testing purposes, will swap to make it more modular
     pub fn generate_screen_mesh(&mut self) {
-        let screen = &self.screen;
-        let cell_width = 2.0 / screen.max_cells as f32; // NDC space: -1..1
-        let cell_height = 2.0 / screen.max_rows as f32;
+        let mut font = self.ttf_font.clone();
+        let gid = font.lookup('a' as u32).unwrap();
+        //maintain a pen that holds the value of teh advanced width
+        //eg after a lookup its advance_width valuen and add to the pen
+        //use the pen for the base of the next character
+        let units_per_em = font.head.units_per_em;
+        let cell_advance = font.hmtx.metric_for_glyph(gid as u16).advance_width;
+        let cell_ascent = font.hhea.ascent;
+        let cell_descent = font.hhea.descent;
+        let cell_height = cell_ascent - cell_descent + font.hhea.line_gap;
+        let font_size_px = 40;
+        let scale = font_size_px as f32 / units_per_em as f32;
+        let cell_width_px = cell_advance as f32 * scale;
+        let cell_height_px = cell_height as f32 * scale;
+        let baseline_offset_px: f32 = cell_ascent as f32 * scale;
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
         let mut index_offset = 0u32;
+        let screen_w: f32 = 1920.0;
+        let screen_h: f32 = 1080.0;
+        let cell_count = (screen_w / cell_width_px).floor() as u32;
+        let row_count = (screen_h / cell_height_px).floor() as u32;
+        println!("cells: {}, rows: {}", cell_count, row_count);
+        for row_idx in 0..row_count - 1 {
+            for col_idx in 0..cell_count - 1 {
+                let gid = font.lookup('a' as u32).unwrap();
+                let glyf = *font
+                    .parse_gid(gid as u16)
+                    .unwrap()
+                    .clone()
+                    .unwrap()
+                    .get_header();
+                let x_cell = col_idx as f32 * cell_width_px;
+                let y_cell = row_idx as f32 * cell_height_px;
+                let baseline_x = x_cell;
+                let baseline_y = y_cell + baseline_offset_px;
+                let x0 = x_ndc(baseline_x + glyf.x_min as f32 * scale, screen_w);
+                let y0 = y_ndc(baseline_y + glyf.y_max as f32 * scale, screen_h);
+                let x1 = x_ndc(baseline_x + glyf.x_max as f32 * scale, screen_w);
+                let y1 = y_ndc(baseline_y + glyf.y_min as f32 * scale, screen_h);
 
-        for (row_idx, row) in screen.rows.iter().enumerate() {
-            for (col_idx, cell) in row.cells.iter().enumerate() {
-                let x0 = -1.0 + col_idx as f32 * cell_width;
-                let y0 = 1.0 - (row_idx + 1) as f32 * cell_height;
-                let x1 = x0 + cell_width;
-                let y1 = y0 + cell_height;
-                let ([u0, v0], [u1, v1]) = match cell.glyph {
+                if y1 < -1.0 || y0 > 1.0 || y1 > 1.0 || y0 < -1.0 {
+                    println!("improper vertex found");
+                }
+
+                let ([u0, v0], [u1, v1]) = match Some('a') {
                     None => ([0.0, 0.0], [0.0, 0.0]),
                     Some(char) => self.atlas.get_uv(char),
                 };
+                // println!("x0: {}, y0: {}, x1: {}, y1: {}", x0, y0, x1, y1);
                 vertices.push(Vertex {
                     pos: [x0, y0],
                     uv: [u0, v0],
@@ -286,7 +324,14 @@ impl App {
         self.glyph_mesh = Some(mesh);
     }
 }
-
+#[inline(always)]
+fn x_ndc(x: f32, screen_w: f32) -> f32 {
+    (x / screen_w) * 2.0 - 1.0
+}
+#[inline(always)]
+fn y_ndc(y: f32, screen_h: f32) -> f32 {
+    1.0 - (y / screen_h) * 2.0
+}
 #[derive(Clone)]
 pub struct Mesh {
     vertices: Vec<Vertex>,

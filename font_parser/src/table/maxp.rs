@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{cursor::Cursor, error::Error, table::TableRecord};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Maxp {
     pub vers_major: u32,
     pub vers_minor: u32,

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{cursor::Cursor, error::Error, table::TableRecord};
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Hmtx {
     hmetrics: Vec<HMetric>,
     left_side_bearings: Vec<i16>,

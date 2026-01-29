@@ -3,13 +3,13 @@ use std::collections::HashMap;
 
 use crate::error::ParseError;
 use crate::table::TableRecord;
-use crate::{error::Error, cursor::Cursor};
+use crate::{cursor::Cursor, error::Error};
 
 pub mod format12;
 pub mod format4;
 use self::format4::*;
 use self::format12::*;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct CMapGroup {
     pub start_char: u32,
     pub end_char: u32,

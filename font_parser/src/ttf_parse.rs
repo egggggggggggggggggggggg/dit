@@ -8,7 +8,7 @@ pub use crate::table::*;
 use math::lalg::{BezierCurve, Transform, transform_curve};
 use std::fs::File;
 use std::io::Read;
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TtfFont {
     data: Vec<u8>,
     pub tables: HashMap<[u8; 4], TableRecord>,

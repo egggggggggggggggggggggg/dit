@@ -54,7 +54,7 @@ impl Screen {
             let mut cells = Vec::new();
             for _ in 0..max_cells {
                 cells.push(Cell {
-                    glyph: None,
+                    glyph: Some('a'),
                     fg: [0, 0, 0, 0],
                     bg: [0, 0, 0, 0],
                     flags: CellFlags::empty(),

@@ -44,7 +44,7 @@ pub struct CompositeGlyph {
     pub components: Vec<Component>,
     pub header: GlyphHeader,
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct GlyphHeader {
     pub contour_count: i16,
     pub x_min: i16,
@@ -88,7 +88,7 @@ pub struct Component {
     pub reference: Arc<Glyph>,
     pub transform_data: Transform,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Glyf {
     offsets: Vec<u32>,
     glyph_cache: GlyphCache,

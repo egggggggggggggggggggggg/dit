@@ -22,7 +22,7 @@ pub mod kern;
 
 pub(crate) type GlyphId = u16;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TableRecord {
     pub checksum: u32,
     pub table_offset: usize,

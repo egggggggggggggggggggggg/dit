@@ -1,6 +1,9 @@
 use crate::renderer::queue::QueueFamiliesIndices;
 use crate::renderer::*;
-use ash::{Device, vk};
+use ash::{
+    Device,
+    vk::{self, ImageMemoryBarrier},
+};
 pub fn create_command_pool(
     device: &Device,
     queue_families_indices: QueueFamiliesIndices,
@@ -16,6 +19,8 @@ pub fn create_command_pool(
             .unwrap()
     }
 }
+
+pub fn image_barriers(barriers: &[ImageMemoryBarrier]) {}
 pub fn create_and_register_command_buffers(
     device: &Device,
     pool: vk::CommandPool,

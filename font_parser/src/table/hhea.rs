@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{cursor::Cursor, error::Error, table::TableRecord};
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Hhea {
     pub major: u16,
     pub minor: u16,
