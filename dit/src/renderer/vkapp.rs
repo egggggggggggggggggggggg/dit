@@ -13,6 +13,11 @@ const WIDTH: u32 = 500;
 const HEIGHT: u32 = 500;
 pub const MAX_FRAMES_IN_FLIGHT: u32 = 2;
 
+
+
+//break this apart to be more modular
+
+
 pub struct VkApplication {
     pub resize_dimensions: [u32; 2],
     pub is_left_clicked: bool,

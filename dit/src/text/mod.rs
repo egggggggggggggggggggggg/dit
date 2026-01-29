@@ -1,65 +1,106 @@
-use std::env::current_exe;
+use std::{cell, collections::HashMap, env::current_exe, fmt::Error};
 
 use font_parser::{Hhea, TtfFont, hhea};
 
+enum GenericError {
+    Placeholder,
+}
+#[derive(Default)]
+struct Point {
+    x: u32,
+    y: u32,
+}
+//Things required
+//Cursor position maintaining
+//Buffer for text holding
+//This is handled by screen where it has the specific cells with the glyphs
+//Cursor can be position at 0  and limit
+//When it reaches the limit put the cursor to the next row
+//
+
+struct Screen {
+    //maintains a buffer of the previous rows that have been hidden
+    previous_rows: Vec<RectLine>,
+    //maintains a buffer of the rows that are ahead
+    //but are hidden because its been scrolled up
+    ahead_rows: Vec<RectLine>,
+    rect_lines: Vec<RectLine>,
+    cursor: Point,
+    row_count: u32,
+    cell_count: u32,
+}
+impl Screen {
+    fn new(cell_count: u32, row_count: u32, hhea: &Hhea) -> Self {
+        let mut rect_lines = Vec::with_capacity(row_count as usize);
+        for _ in 0..row_count {
+            let row = RectLine::with_cells(cell_count);
+            rect_lines.push(row);
+        }
+        Self {
+            rect_lines,
+            cursor: Point::default(),
+            row_count,
+            cell_count,
+            ahead_rows: Vec::new(),
+            previous_rows: Vec::new(),
+        }
+    }
+    fn move_cursor(&mut self, x_delta: i32, y_delta: i32) {
+        let mut cursor = &self.cursor;
+        let new_x_pos = cursor.x as i32 + x_delta;
+        let new_y_pos = cursor.y as i32 + y_delta;
+        //return a signal indicating that the screen should scroll back to the previous row if its in the cached buffer
+        if new_x_pos > self.cell_count as i32 {
+            //go down
+        } else if new_x_pos < self.cell_count as i32 {
+            //go up
+        }
+        if new_y_pos > self.row_count as i32 {
+            //go up to the next hidden row
+        } else if new_y_pos < self.row_count as i32 {
+        }
+    }
+    fn hide_row(delta: i32) {
+        //sends a delta of the rows to hide
+        //
+    }
+    fn get_mut_rect(&mut self, row_num: u32, cell_num: u32) -> Result<&mut Rect, GenericError> {
+        let rect_line = self
+            .rect_lines
+            .get_mut(row_num as usize)
+            .ok_or(GenericError::Placeholder)?;
+        rect_line
+            .get_mut_rect(cell_num)
+            .ok_or(GenericError::Placeholder)
+    }
+    fn set_char(&mut self) {}
+    fn resize(new_x: u32, new_y: u32) {
+        //cerates a hlding buffer for the new data to be moved into temporarily
+        //makes a new buffer where the old wll be placed
+    }
+    //maintain a cursor that tells the
+}
+
+#[derive(Default)]
 struct RectLine {
     rects: Vec<Rect>,
-    cell_height: u16,
-    row_num: u16,
 }
 impl RectLine {
-    fn new(hhea: &Hhea, row_num: u16) -> Self {
-        //cell height should never be a negative number, if it is it means smth went wrong
-        let cell_height = (hhea.ascent + hhea.descent) as u16;
-        //row num acts as a way to generate the vertices for the given line
-        //this is required as vertices are relative to the scren;
-        Self {
-            rects: Vec::new(),
-            cell_height,
-            row_num,
-        }
+    fn new() -> Self {
+        Self { rects: Vec::new() }
     }
-    //if the font is monospaced line_gap can be set to be the same value for all characters
-    //otherwise each character has to have their linegap derived from this:
-    //linespace = ascent - descent + line_gap
-    //TtfFont has to have the required characters in the text parsed.
-    //If not force it to and then check again
-
-    //
-    fn calculate_vertices(&mut self, ttf_font: &TtfFont, target_px: f32, total_rows: u16) {
-        let hhea = &ttf_font.hhea;
-        let units_per_em = ttf_font.head.units_per_em;
-        let scale = target_px as f32 / units_per_em as f32;
-
-        //get the basic info
-        let mut current_cell = 0;
-        //range of 0 to 1
-        let cell_height = self.row_num as f32 / total_rows as f32;
-        let mut pen = ();
-
-        //offset in screen coords
-        let mut current_advance_width = 0;
-
-        //new_va
-        let baseline = self.row_num as i16 * self.cell_height as i16 + hhea.ascent;
-        for rect in &self.rects {
-            let gid = ttf_font.lookup(rect.ch as u32).unwrap();
-            let hmetrics = ttf_font.hmtx.metric_for_glyph(gid as u16);
-            let bbox = ttf_font.get_glyf_header(gid as u16).unwrap();
-            current_advance_width += hmetrics.advance_width;
-            println!("baseline: {}", baseline);
-            //renders over the top of the cell
-
-            current_cell += 1;
+    fn with_cells(cell_count: u32) -> Self {
+        let mut rects = Vec::with_capacity(cell_count as usize);
+        for _ in 0..cell_count {
+            rects.push(Rect::default());
         }
+        Self { rects }
     }
-    //this should probably be outside as its possible the user can have padding
-    //enabled for the screen meaning all the vertices would have to be offset again
-    fn resize(&mut self, target_cell_size: u32) -> Vec<Rect> {
-        //splices the given rectangles and return it to be plaecd into a new RectLine
-        Vec::new()
+    fn get_mut_rect(&mut self, cell_num: u32) -> Option<&mut Rect> {
+        self.rects.get_mut(cell_num as usize)
     }
 }
+
 struct Rect {
     ch: char,
     fg: Color,
@@ -99,3 +140,4 @@ impl Default for Rect {
     }
 }
 impl Rect {}
+//maintiain a cursor
