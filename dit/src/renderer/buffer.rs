@@ -165,7 +165,7 @@ pub fn create_index_buffer(
     transfer_queue: vk::Queue,
     indices: &[u32],
 ) -> (vk::Buffer, vk::DeviceMemory) {
-    create_device_local_buffer_with_data::<u32, _>(
+    create_device_local_buffer_with_data::<u16, _>(
         vk_context,
         command_pool,
         transfer_queue,
