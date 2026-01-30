@@ -23,10 +23,10 @@ pub fn entry() -> Atlas<char, Rgb<u8>, ShelfAllocator> {
         let glyph = font.glyf.get_glyf(gid as u16).unwrap().clone();
         let header = glyph.get_header();
         let drawn_glyph: ImageBuffer<Rgb<u8>, Vec<u8>> =
-            draw_msdf_glyph(contour, 64, font.head.units_per_em, header);
+            draw_msdf_glyph(contour, 32, font.head.units_per_em, header);
         texture_atlas.add_image(c, &drawn_glyph).unwrap();
     }
-    texture_atlas.image.save("../texture_atlas.png").unwrap();
+    texture_atlas.image.save("../texture_atlas2.png").unwrap();
     texture_atlas
 }
 fn sample_atlas(texture_atlas: &Atlas<char, Rgb<u8>, ShelfAllocator>, char: char) {
@@ -100,7 +100,7 @@ where
     let pixel_width = (width as f32 * scale).ceil().max(1.0) as u32;
     let pixel_height = (height as f32 * scale).ceil().max(1.0) as u32;
     let mut img = ImageBuffer::new(pixel_width, pixel_height);
-    let spread = font_size as f32 / 4.0; // try 4–16
+    let spread = 4.0; // try 4–16
     let colored_shape = color_edges(&contour);
     for x in 0..pixel_width {
         for y in 0..pixel_height {

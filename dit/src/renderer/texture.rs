@@ -79,19 +79,19 @@ pub fn create_texture_image(
         let sampler_info = vk::SamplerCreateInfo::default()
             .mag_filter(vk::Filter::LINEAR)
             .min_filter(vk::Filter::LINEAR)
-            // .address_mode_u(vk::SamplerAddressMode::REPEAT)
-            // .address_mode_v(vk::SamplerAddressMode::REPEAT)
-            // .address_mode_w(vk::SamplerAddressMode::REPEAT)
+            .address_mode_u(vk::SamplerAddressMode::REPEAT)
+            .address_mode_v(vk::SamplerAddressMode::REPEAT)
+            .address_mode_w(vk::SamplerAddressMode::REPEAT)
             .anisotropy_enable(true)
             .max_anisotropy(16.0)
-            .border_color(vk::BorderColor::FLOAT_TRANSPARENT_BLACK)
+            .border_color(vk::BorderColor::INT_OPAQUE_BLACK)
             .unnormalized_coordinates(false)
             .compare_enable(false)
             .compare_op(vk::CompareOp::ALWAYS)
-            .mipmap_mode(vk::SamplerMipmapMode::NEAREST)
+            .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
             .mip_lod_bias(0.0)
             .min_lod(0.0)
-            .max_lod(0.0 as _);
+            .max_lod(max_mip_levels as _);
 
         unsafe { device.create_sampler(&sampler_info, None).unwrap() }
     };
@@ -275,7 +275,7 @@ fn transition_image_layout(
             .subresource_range(vk::ImageSubresourceRange {
                 aspect_mask,
                 base_mip_level: 0,
-                level_count: 0,
+                level_count: mip_levels,
                 base_array_layer: 0,
                 layer_count: 1,
             })

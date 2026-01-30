@@ -159,11 +159,3 @@ To use the MSDF texture atlas
 define the bilinear sampling method(built in on most gpus)
 colordist function defined earlier
 
-FIXES NEEDED:
-- Padding between entries in the atlas to prevent bleeding when sampling
-- ACtually implementing msdf, currntly its just an imitation that results in low quality glyphs
-- Run tests to gauge glyph accuracy/quality.
-- Make it more modular for use
-- Seperate the inlined entry() function as it makes it hard for reuse
-- Have error handling
-- MSDF error correcftion as specified in msdfgen to improve quality. 

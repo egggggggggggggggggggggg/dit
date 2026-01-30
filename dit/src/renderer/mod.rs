@@ -32,7 +32,6 @@ use texture::*;
 use utils::*;
 // use vkcore::*;
 
-use rand::prelude::*;
 use std::{cell, collections::HashSet, time::Instant};
 use winit::{
     application::ApplicationHandler,
@@ -242,12 +241,6 @@ impl App {
     //Inlinining evryething for now for testing purposes, will swap to make it more modular
     pub fn generate_screen_mesh(&mut self) {
         let mut font = self.ttf_font.clone();
-        for ch in 'a'..'z' {
-            font.lookup(ch as u32).unwrap();
-        }
-        //preload the character so the entry exists inthe map
-
-        //random gid for getting advance_width will change later
         let gid = font.lookup('a' as u32).unwrap();
         //maintain a pen that holds the value of teh advanced width
         //eg after a lookup its advance_width valuen and add to the pen
@@ -272,8 +265,7 @@ impl App {
         println!("cells: {}, rows: {}", cell_count, row_count);
         for row_idx in 0..row_count - 1 {
             for col_idx in 0..cell_count - 1 {
-                let rand_letter = 'x';
-                let gid = font.lookup(rand_letter as u32).unwrap();
+                let gid = font.lookup('a' as u32).unwrap();
                 let glyf = *font
                     .parse_gid(gid as u16)
                     .unwrap()
@@ -292,7 +284,8 @@ impl App {
                 if y1 < -1.0 || y0 > 1.0 || y1 > 1.0 || y0 < -1.0 {
                     println!("improper vertex found");
                 }
-                let ([u0, v0], [u1, v1]) = match Some(rand_letter) {
+
+                let ([u0, v0], [u1, v1]) = match Some('a') {
                     None => ([0.0, 0.0], [0.0, 0.0]),
                     Some(char) => self.atlas.get_uv(char),
                 };
@@ -343,11 +336,4 @@ fn y_ndc(y: f32, screen_h: f32) -> f32 {
 pub struct Mesh {
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
-}
-
-#[inline(always)]
-fn rand_letter() -> char {
-    let mut rng = rand::rng();
-    let letter_u8 = rng.random_range(b'a'..=b'z');
-    letter_u8 as char
 }

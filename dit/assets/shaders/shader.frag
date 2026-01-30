@@ -2,8 +2,8 @@
 layout(binding = 1) uniform sampler2D texSampler;
 
 layout(location = 0) in vec2 o_uv;
-layout(location = 0) out vec4 uFragColor;
 
+layout(location = 0) out vec4 uFragColor;
 const vec4 fgColor = vec4(1.0, 1.0, 1.0, 0.0);
 const vec4 bgColor = vec4(0.0, 0.0, 0.0, 0.0);
 float median(float a, float b, float c) {
