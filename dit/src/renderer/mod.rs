@@ -24,6 +24,7 @@ use font_parser::TtfFont;
 use image::Rgb;
 use pipeline::*;
 use queue::*;
+use rand::prelude::*;
 use renderpass::*;
 use resources::*;
 use shader::*;
@@ -242,6 +243,9 @@ impl App {
     pub fn generate_screen_mesh(&mut self) {
         let mut font = self.ttf_font.clone();
         let gid = font.lookup('a' as u32).unwrap();
+        for ch in '!'..'~' {
+            font.lookup(ch as u32).unwrap();
+        }
         //maintain a pen that holds the value of teh advanced width
         //eg after a lookup its advance_width valuen and add to the pen
         //use the pen for the base of the next character
@@ -250,7 +254,7 @@ impl App {
         let cell_ascent = font.hhea.ascent;
         let cell_descent = font.hhea.descent;
         let cell_height = cell_ascent - cell_descent + font.hhea.line_gap;
-        let font_size_px = 40;
+        let font_size_px = 80;
         let scale = font_size_px as f32 / units_per_em as f32;
         let cell_width_px = cell_advance as f32 * scale;
         let cell_height_px = cell_height as f32 * scale;
@@ -265,7 +269,8 @@ impl App {
         println!("cells: {}, rows: {}", cell_count, row_count);
         for row_idx in 0..row_count - 1 {
             for col_idx in 0..cell_count - 1 {
-                let gid = font.lookup('a' as u32).unwrap();
+                let rand_letter = rand_letter();
+                let gid = font.lookup(rand_letter as u32).unwrap();
                 let glyf = *font
                     .parse_gid(gid as u16)
                     .unwrap()
@@ -285,7 +290,7 @@ impl App {
                     println!("improper vertex found");
                 }
 
-                let ([u0, v0], [u1, v1]) = match Some('a') {
+                let ([u0, v0], [u1, v1]) = match Some(rand_letter) {
                     None => ([0.0, 0.0], [0.0, 0.0]),
                     Some(char) => self.atlas.get_uv(char),
                 };
@@ -336,4 +341,11 @@ fn y_ndc(y: f32, screen_h: f32) -> f32 {
 pub struct Mesh {
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
+}
+
+#[inline(always)]
+fn rand_letter() -> char {
+    let mut rng = rand::rng();
+    let letter_u8 = rng.random_range(b'!'..b'~');
+    letter_u8 as char
 }

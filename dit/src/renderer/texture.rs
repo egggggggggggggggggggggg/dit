@@ -77,8 +77,8 @@ pub fn create_texture_image(
 
     let sampler = {
         let sampler_info = vk::SamplerCreateInfo::default()
-            .mag_filter(vk::Filter::LINEAR)
-            .min_filter(vk::Filter::LINEAR)
+            .mag_filter(vk::Filter::NEAREST)
+            .min_filter(vk::Filter::NEAREST)
             .address_mode_u(vk::SamplerAddressMode::REPEAT)
             .address_mode_v(vk::SamplerAddressMode::REPEAT)
             .address_mode_w(vk::SamplerAddressMode::REPEAT)
@@ -91,7 +91,7 @@ pub fn create_texture_image(
             .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
             .mip_lod_bias(0.0)
             .min_lod(0.0)
-            .max_lod(max_mip_levels as _);
+            .max_lod(0.0 as _);
 
         unsafe { device.create_sampler(&sampler_info, None).unwrap() }
     };

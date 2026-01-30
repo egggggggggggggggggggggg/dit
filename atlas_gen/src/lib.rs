@@ -1,5 +1,6 @@
 pub mod allocator;
 pub mod atlas;
+pub mod msdf;
 use core::{f32, panic};
 use std::time::Instant;
 use std::{f32::EPSILON, vec};
@@ -15,7 +16,7 @@ pub fn entry() -> Atlas<char, Rgb<u8>, ShelfAllocator> {
     let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
     let atlas_allocator = ShelfAllocator::new(512, 512);
     let mut texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator> =
-        Atlas::new(512, 512, atlas_allocator);
+        Atlas::new(1024, 1024, atlas_allocator, 4, false);
     let current = Instant::now();
     for c in '!'..'~' {
         let gid = font.lookup(c as u32).unwrap();
@@ -23,10 +24,10 @@ pub fn entry() -> Atlas<char, Rgb<u8>, ShelfAllocator> {
         let glyph = font.glyf.get_glyf(gid as u16).unwrap().clone();
         let header = glyph.get_header();
         let drawn_glyph: ImageBuffer<Rgb<u8>, Vec<u8>> =
-            draw_msdf_glyph(contour, 32, font.head.units_per_em, header);
+            draw_msdf_glyph(contour, 64, font.head.units_per_em, header);
         texture_atlas.add_image(c, &drawn_glyph).unwrap();
     }
-    texture_atlas.image.save("../texture_atlas2.png").unwrap();
+    texture_atlas.image.save("../texture_atlas.png").unwrap();
     texture_atlas
 }
 fn sample_atlas(texture_atlas: &Atlas<char, Rgb<u8>, ShelfAllocator>, char: char) {
