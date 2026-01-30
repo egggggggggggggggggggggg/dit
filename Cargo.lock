@@ -156,6 +156,7 @@ dependencies = [
 name = "atlas_gen"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.10.0",
  "font_parser",
  "image",
  "math",

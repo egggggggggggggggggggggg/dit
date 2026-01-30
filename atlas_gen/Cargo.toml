@@ -8,3 +8,4 @@ font_parser = { path = "../font_parser" }
 math = { path = "../math" }
 
 image = "0.25.9"
+bitflags = "2.10.0"
