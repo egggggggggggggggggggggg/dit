@@ -8,6 +8,7 @@ use std::{f32::EPSILON, vec};
 use atlas::*;
 use font_parser::{GlyphHeader, TtfFont};
 use image::{ImageBuffer, Pixel, Rgb, Rgba};
+use math::bezier::BezierTypes;
 use math::calc::{Polynomial, Range, bisection, median};
 use math::lalg::{BezierCurve, BinaryVector, Vec2};
 
@@ -60,23 +61,23 @@ fn draw_glyph<P>(
 where
     P: Pixel<Subpixel = u8> + Copy,
 {
-    let scale = font_size as f32 / units_per_em as f32;
+    let scale = font_size as f64 / units_per_em as f64;
     let width = bounds.x_max - bounds.x_min;
     let height = bounds.y_max - bounds.y_min;
-    let pixel_width = (width as f32 * scale).ceil().max(1.0) as u32;
-    let pixel_height = (height as f32 * scale).ceil().max(1.0) as u32;
+    let pixel_width = (width as f64 * scale).ceil().max(1.0) as u32;
+    let pixel_height = (height as f64 * scale).ceil().max(1.0) as u32;
     let mut img = ImageBuffer::new(pixel_width, pixel_height);
     let white = *P::from_slice(&[255u8; 3]);
     for curves in contour {
         for curve in curves {
             for i in 0..100 {
-                let t = i as f32 / 100.0;
+                let t = i as f64 / 100.0;
                 let p = curve.evaluate_bezier(t);
 
-                let x = (p.x - bounds.x_min as f32) * scale;
-                let y = (bounds.y_max as f32 - p.y) * scale;
+                let x = (p.x - bounds.x_min as f64) * scale;
+                let y = (bounds.y_max as f64 - p.y) * scale;
 
-                if x >= 0.0 && y >= 0.0 && x < pixel_width as f32 && y < pixel_height as f32 {
+                if x >= 0.0 && y >= 0.0 && x < pixel_width as f64 && y < pixel_height as f64 {
                     img.put_pixel(x as u32, y as u32, white);
                 }
             }
@@ -87,7 +88,7 @@ where
 }
 
 fn draw_msdf_glyph<P>(
-    contour: Vec<Vec<BezierCurve>>,
+    contour: Vec<Vec<BezierTypes>>,
     font_size: u16,
     units_per_em: u16,
     bounds: &GlyphHeader,
@@ -95,19 +96,19 @@ fn draw_msdf_glyph<P>(
 where
     P: Pixel<Subpixel = u8> + Copy,
 {
-    let scale = font_size as f32 / units_per_em as f32;
+    let scale = font_size as f64 / units_per_em as f64;
     let width = bounds.x_max - bounds.x_min;
     let height = bounds.y_max - bounds.y_min;
-    let pixel_width = (width as f32 * scale).ceil().max(1.0) as u32;
-    let pixel_height = (height as f32 * scale).ceil().max(1.0) as u32;
+    let pixel_width = (width as f64 * scale).ceil().max(1.0) as u32;
+    let pixel_height = (height as f64 * scale).ceil().max(1.0) as u32;
     let mut img = ImageBuffer::new(pixel_width, pixel_height);
     let spread = 4.0; // try 4–16
     let colored_shape = color_edges(&contour);
     for x in 0..pixel_width {
         for y in 0..pixel_height {
             let p = Vec2 {
-                x: bounds.x_min as f32 + (x as f32 + 0.5) / scale,
-                y: bounds.y_max as f32 - (y as f32 + 0.5) / scale,
+                x: bounds.x_min as f64 + (x as f64 + 0.5) / scale,
+                y: bounds.y_max as f64 - (y as f64 + 0.5) / scale,
             };
             let dr = closest_edge_by_color(&p, &colored_shape, BinaryVector::RED);
             let dg = closest_edge_by_color(&p, &colored_shape, BinaryVector::GREEN);
@@ -175,7 +176,7 @@ fn color_edges2<'a>(shape: &'a Vec<Vec<BezierCurve>>) -> Vec<Vec<Edge<'a>>> {
     result
 }
 ///Finds the best candidate edge for
-fn closest_edge_by_color(p: &Vec2, shape: &Vec<Vec<Edge>>, color: BinaryVector) -> f32 {
+fn closest_edge_by_color(p: &Vec2, shape: &Vec<Vec<Edge>>, color: BinaryVector) -> f64 {
     let mut best: Option<Candidate> = None;
     for contour in shape {
         for edge in contour {
@@ -217,13 +218,13 @@ fn generate_pixel(p: &Vec2, shape: &Vec<Vec<Edge>>) {
 }
 #[derive(Copy, Clone, Debug)]
 struct Candidate {
-    dist: f32,
-    ortho: f32,
-    t: f32,
+    dist: f64,
+    ortho: f64,
+    t: f64,
     edge: BezierCurve,
 }
-const DIST_EPS: f32 = 1e-4;
-const ORTHO_EPS: f32 = 1e-3;
+const DIST_EPS: f64 = 1e-4;
+const ORTHO_EPS: f64 = 1e-3;
 ///Finds the best candidate aka the one with either smaller absolute distance
 ///or if they're equal the more orthogonal wins
 /// If still tied, go for the one thats more interior aka within the range 0 < t < 1
@@ -238,7 +239,7 @@ fn cmp(a: &Candidate, b: &Candidate) -> bool {
 }
 
 ///Gives the sign for the distance value once it has been found
-fn signed_dist(min_dist_root: f32, edge: &BezierCurve, p: &Vec2) -> f32 {
+fn signed_dist(min_dist_root: f64, edge: &BezierCurve, p: &Vec2) -> f64 {
     let min_vector = edge.evaluate_bezier(min_dist_root) - *p;
     let derirative_bezier = edge.derive_curve().evaluate_bezier(min_dist_root);
     let tangent = derirative_bezier.normalize();
@@ -249,7 +250,7 @@ fn signed_dist(min_dist_root: f32, edge: &BezierCurve, p: &Vec2) -> f32 {
     normal.dot(min_vector).signum()
 }
 ///Gives information for the cmp function to work with (orthogonality values)
-fn categorize(p: &Vec2, edge: &BezierCurve, min_dist_root: f32) -> Candidate {
+fn categorize(p: &Vec2, edge: &BezierCurve, min_dist_root: f64) -> Candidate {
     let min_vector = edge.evaluate_bezier(min_dist_root) - *p;
     let dist = min_vector.magnitude();
     let derirative_bezier = edge.derive_curve().evaluate_bezier(min_dist_root);
@@ -263,7 +264,7 @@ fn categorize(p: &Vec2, edge: &BezierCurve, min_dist_root: f32) -> Candidate {
     }
 }
 ///Gives all the roots for the polynomial resulting from bn(t) - p
-fn find_roots(p: &Vec2, edge: &BezierCurve) -> Vec<f32> {
+fn find_roots(p: &Vec2, edge: &BezierCurve) -> Vec<f64> {
     match *edge {
         BezierCurve::Quadratic(p0, p1, p2) => {
             let a = p0 - p1 * 2.0 + p2;
@@ -287,10 +288,10 @@ fn find_roots(p: &Vec2, edge: &BezierCurve) -> Vec<f32> {
     }
 }
 ///Finds the best root that yields the min dist for an edge and p with the given roots
-fn min_dist(edge: &BezierCurve, p: Vec2) -> f32 {
+fn min_dist(edge: &BezierCurve, p: Vec2) -> f64 {
     let roots = find_roots(&p, edge);
     let mut best_root = 0.0;
-    let mut min_dist = f32::MAX;
+    let mut min_dist = f64::MAX;
     for t in roots {
         if !(0.0..=1.0).contains(&t) {
             continue;

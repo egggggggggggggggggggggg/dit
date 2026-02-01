@@ -3,7 +3,10 @@ use crate::{
     error::Error,
     table::{GlyphId, TableRecord},
 };
-use math::lalg::{BezierCurve, Transform, Vec2};
+use math::{
+    bezier::{BezierTypes, LinearBezier, QuadraticBezier},
+    lalg::{BezierCurve, Transform, Vec2},
+};
 use std::{collections::HashMap, sync::Arc};
 #[derive(Copy, Clone, Debug)]
 enum ComponentFlags {
@@ -37,7 +40,7 @@ pub type GlyphCache = HashMap<GlyphId, Arc<Glyph>>;
 #[derive(Debug)]
 pub struct SimpleGlyph {
     pub header: GlyphHeader,
-    pub contours: Vec<Vec<BezierCurve>>,
+    pub contours: Vec<Vec<BezierTypes>>,
 }
 #[derive(Debug)]
 pub struct CompositeGlyph {
@@ -111,16 +114,16 @@ impl Glyf {
         let mut transform = Transform::identity();
         if flags & (ComponentFlags::WE_HAVE_A_SCALE as u16) != 0 {
             let scale = cursor.read_f2dot14()?.to_f32();
-            transform.a = scale;
-            transform.d = scale;
+            transform.a = scale as f64;
+            transform.d = scale as f64;
         } else if flags & (ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE as u16) != 0 {
-            transform.a = cursor.read_f2dot14()?.to_f32();
-            transform.d = cursor.read_f2dot14()?.to_f32();
+            transform.a = cursor.read_f2dot14()?.to_f32() as f64;
+            transform.d = cursor.read_f2dot14()?.to_f32() as f64;
         } else if flags & (ComponentFlags::WE_HAVE_A_TWO_BY_TWO as u16) != 0 {
-            transform.a = cursor.read_f2dot14()?.to_f32();
-            transform.b = cursor.read_f2dot14()?.to_f32();
-            transform.c = cursor.read_f2dot14()?.to_f32();
-            transform.d = cursor.read_f2dot14()?.to_f32();
+            transform.a = cursor.read_f2dot14()?.to_f32() as f64;
+            transform.b = cursor.read_f2dot14()?.to_f32() as f64;
+            transform.c = cursor.read_f2dot14()?.to_f32() as f64;
+            transform.d = cursor.read_f2dot14()?.to_f32() as f64;
         }
         Ok(transform)
     }
@@ -201,8 +204,8 @@ impl Glyf {
             let gid = cursor.read_u16()?;
             let (arg1, arg2) = self.parse_args(cursor, flags)?;
             let mut transform = self.parse_transform(cursor, flags)?;
-            transform.dx = arg1 as f32;
-            transform.dy = arg2 as f32;
+            transform.dx = arg1 as f64;
+            transform.dy = arg2 as f64;
             components.push(UnresolvedComponent {
                 flags,
                 gid,
@@ -309,7 +312,7 @@ fn curve_from_coords(
     x: &[i16],
     y: &[i16],
     flags: &[u8],
-) -> Result<Vec<BezierCurve>, Error> {
+) -> Result<Vec<BezierTypes>, Error> {
     if end < start {
         return Ok(Vec::new());
     }
@@ -318,8 +321,8 @@ fn curve_from_coords(
         let on_curve = flags[i] & SimpleFlags::ON_CURVE_POINT as u8 != 0;
         pts.push((
             Vec2 {
-                x: x[i] as f32,
-                y: y[i] as f32,
+                x: x[i] as f64,
+                y: y[i] as f64,
             },
             on_curve,
         ));
@@ -363,14 +366,14 @@ fn curve_from_coords(
         let (p0, on0) = expanded[i];
         let (p1, on1) = expanded[i + 1];
         if on0 && on1 {
-            curves.push(BezierCurve::Linear(p0, p1));
+            curves.push(BezierTypes::Linear(LinearBezier::new(p0, p1)));
             i += 1;
         } else if on0 && !on1 {
             let (p2, on2) = expanded[(i + 2) % expanded.len()];
             if !on2 {
                 return Err(Error::Unknown);
             }
-            curves.push(BezierCurve::Quadratic(p0, p1, p2));
+            curves.push(BezierTypes::Quadratic(QuadraticBezier::new(p0, p1, p2)));
             i += 2;
         } else {
             return Err(Error::Unknown);

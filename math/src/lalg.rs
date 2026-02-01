@@ -1,26 +1,78 @@
-use std::ops::{Add, Div, Mul, Sub};
-#[derive(Debug, Copy, Clone)]
+use std::{
+    cmp::Ordering,
+    ops::{Add, Div, Mul, Sub},
+};
+
+use crate::bezier::{Bezier, BezierTypes, CubicBezier, LinearBezier, QuadraticBezier};
+#[derive(Debug, Copy, Clone, Default)]
 pub struct Vec2 {
-    pub x: f32,
-    pub y: f32,
+    pub x: f64,
+    pub y: f64,
 }
 impl Vec2 {
-    pub fn magnitude(&self) -> f32 {
+    #[inline(always)]
+    pub fn magnitude(&self) -> f64 {
         (self.x.powi(2) + self.y.powi(2)).sqrt()
     }
-    pub fn dot(&self, rhs: Self) -> f32 {
+    #[inline(always)]
+    pub fn dot(&self, rhs: Self) -> f64 {
         self.x * rhs.x + self.y * rhs.y
     }
-    pub fn cross(&self, rhs: Self) -> f32 {
+    #[inline(always)]
+    pub fn cross(&self, rhs: Self) -> f64 {
         self.x * rhs.y - self.y * rhs.x
     }
+    #[inline(always)]
     pub fn normalize(&self) -> Self {
         *self / self.magnitude()
     }
+    #[inline(always)]
+    pub fn length(&self) -> f64 {
+        (self.x * self.x + self.y * self.y).sqrt()
+    }
+    #[inline(always)]
+    pub fn squared_length(&self) -> f64 {
+        self.x * self.x + self.y * self.y
+    }
+    #[inline(always)]
+    pub fn orthogonal(&self, polarity: bool) -> Vec2 {
+        if polarity {
+            Vec2 {
+                x: -self.y,
+                y: -self.x,
+            }
+        } else {
+            Vec2 {
+                x: self.y,
+                y: -self.x,
+            }
+        }
+    }
+    #[inline(always)]
+    pub fn orthonormal(&self, polarity: bool, allow_zero: bool) -> Vec2 {
+        let len = self.length();
+        let sign = if polarity { 1.0 } else { -1.0 };
+
+        if len != 0.0 {
+            Vec2 {
+                x: -sign * self.y / len,
+                y: sign * self.x / len,
+            }
+        } else {
+            Vec2 {
+                x: 0.0,
+                y: sign * (allow_zero as u8 as f64),
+            }
+        }
+    }
+    #[inline(always)]
+    pub fn is_zero(&self) -> bool {
+        self.x != 0.0 && self.y != 0.0
+    }
 }
 
-impl Mul<f32> for Vec2 {
-    fn mul(self, rhs: f32) -> Self::Output {
+impl Mul<f64> for Vec2 {
+    fn mul(self, rhs: f64) -> Self::Output {
         Vec2 {
             x: self.x * rhs,
             y: self.y * rhs,
@@ -28,8 +80,8 @@ impl Mul<f32> for Vec2 {
     }
     type Output = Self;
 }
-impl Div<f32> for Vec2 {
-    fn div(self, rhs: f32) -> Self::Output {
+impl Div<f64> for Vec2 {
+    fn div(self, rhs: f64) -> Self::Output {
         Vec2 {
             x: self.x / rhs,
             y: self.y / rhs,
@@ -60,17 +112,16 @@ impl Mul for Vec2 {
     fn mul(self, rhs: Self) -> Self::Output {
         (self.x * rhs.x) + (self.y * rhs.y)
     }
-    type Output = f32;
+    type Output = f64;
 }
-
 #[derive(Debug, Clone, Copy)]
 pub struct Transform {
-    pub a: f32,
-    pub b: f32,
-    pub c: f32,
-    pub d: f32,
-    pub dx: f32,
-    pub dy: f32,
+    pub a: f64,
+    pub b: f64,
+    pub c: f64,
+    pub d: f64,
+    pub dx: f64,
+    pub dy: f64,
 }
 impl Transform {
     pub fn identity() -> Self {
@@ -108,19 +159,27 @@ pub enum BezierCurve {
     Quadratic(Vec2, Vec2, Vec2),
     Cubic(Vec2, Vec2, Vec2, Vec2),
 }
-pub fn transform_curve(curve: &BezierCurve, t: Transform) -> BezierCurve {
+pub fn transform_curve(curve: &BezierTypes, t: Transform) -> BezierTypes {
     match *curve {
-        BezierCurve::Linear(p0, p1) => BezierCurve::Linear(t.apply(p0), t.apply(p1)),
-        BezierCurve::Quadratic(p0, p1, p2) => {
-            BezierCurve::Quadratic(t.apply(p0), t.apply(p1), t.apply(p2))
-        }
-        BezierCurve::Cubic(p0, p1, p2, p3) => {
-            BezierCurve::Cubic(t.apply(p0), t.apply(p1), t.apply(p2), t.apply(p3))
-        }
+        BezierTypes::Linear(l_bezier) => BezierTypes::Linear(LinearBezier::new(
+            t.apply(l_bezier.p[0]),
+            t.apply(l_bezier.p[1]),
+        )),
+        BezierTypes::Quadratic(q_bezier) => BezierTypes::Quadratic(QuadraticBezier::new(
+            t.apply(q_bezier.p[0]),
+            t.apply(q_bezier.p[1]),
+            t.apply(q_bezier.p[2]),
+        )),
+        BezierTypes::Cubic(c_bezier) => BezierTypes::Cubic(CubicBezier::new(
+            t.apply(c_bezier.p[0]),
+            t.apply(c_bezier.p[1]),
+            t.apply(c_bezier.p[2]),
+            t.apply(c_bezier.p[3]),
+        )),
     }
 }
 impl BezierCurve {
-    pub fn evaluate_bezier(&self, t: f32) -> Vec2 {
+    pub fn evaluate_bezier(&self, t: f64) -> Vec2 {
         let u = 1.0 - t;
         match self {
             BezierCurve::Cubic(_a, _b, _c, _d) => Vec2 { x: 0.0, y: 0.0 },
@@ -146,6 +205,7 @@ impl BezierCurve {
             }
         }
     }
+    pub fn split_in_thirds(&mut self) {}
 }
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub struct BinaryVector {

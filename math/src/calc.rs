@@ -1,5 +1,6 @@
 use crate::lalg::Vec2;
-use std::ops::Mul;
+use core::panic;
+use std::{f64, ops::Mul};
 #[derive(Debug, Copy, Clone)]
 pub enum Degree {
     Constant,
@@ -26,10 +27,10 @@ impl From<u32> for Degree {
 
 #[derive(Debug, Clone)]
 pub struct Polynomial {
-    pub coefficients: Vec<f32>,
+    pub coefficients: Vec<f64>,
 }
 impl Polynomial {
-    pub fn eval(&self, x: f32) -> f32 {
+    pub fn eval(&self, x: f64) -> f64 {
         let mut total_value = 0.0;
         let mut current_degree = self.coefficients.len() - 1;
         for coefficient in &self.coefficients {
@@ -39,7 +40,7 @@ impl Polynomial {
         }
         total_value
     }
-    pub fn eval_horner(&self, x: f32) -> f32 {
+    pub fn eval_horner(&self, x: f64) -> f64 {
         self.coefficients.iter().fold(0.0, |acc, &c| acc * x + c)
     }
     pub fn derivative(&self) -> Self {
@@ -54,7 +55,7 @@ impl Polynomial {
             if current_degree == 0 {
                 break;
             }
-            new_coefficients.push(current_degree as f32 * i);
+            new_coefficients.push(current_degree as f64 * i);
             current_degree -= 1;
         }
         Self {
@@ -68,21 +69,21 @@ impl Polynomial {
     //options might be
     //sampling rate
     //range
-    pub fn find_roots(&self, sample_amount: u32, epsilon: f32) -> Vec<f32> {
+    pub fn find_roots(&self, sample_amount: u32, epsilon: f64) -> Vec<f64> {
         //this method works on any degree but im using it for cubic solving
         let mut candidate_intervals: Vec<Range> = vec![];
         let mut i = 0;
         let mut roots = vec![0.0, 1.0];
         while i < sample_amount + 1 {
-            let first = self.eval_horner(i as f32 / sample_amount as f32);
-            let second = self.eval_horner((i + 1) as f32 / sample_amount as f32);
+            let first = self.eval_horner(i as f64 / sample_amount as f64);
+            let second = self.eval_horner((i + 1) as f64 / sample_amount as f64);
             if (first.abs() < epsilon)
                 || (second.abs() < epsilon)
                 || (first.signum() != second.signum())
             {
                 candidate_intervals.push(Range {
-                    lower: i as f32 / sample_amount as f32,
-                    higher: (i + 1) as f32 / sample_amount as f32,
+                    lower: i as f64 / sample_amount as f64,
+                    higher: (i + 1) as f64 / sample_amount as f64,
                 })
             }
             i += 1;
@@ -111,11 +112,11 @@ impl Mul for Polynomial {
 }
 #[derive(Debug, Clone, Copy)]
 pub struct Range {
-    pub lower: f32,
-    pub higher: f32,
+    pub lower: f64,
+    pub higher: f64,
 }
 #[inline(always)]
-pub fn bisection(f: &Polynomial, initial_guess: Range, epsilon: f32) -> Option<f32> {
+pub fn bisection(f: &Polynomial, initial_guess: Range, epsilon: f64) -> Option<f64> {
     let mut a = initial_guess.lower;
     let mut b = initial_guess.higher;
     if f.eval_horner(a) * f.eval_horner(b) >= 0.0 {
@@ -136,7 +137,7 @@ pub fn bisection(f: &Polynomial, initial_guess: Range, epsilon: f32) -> Option<f
     Some(c)
 }
 #[inline(always)]
-pub fn clamp(value: f32, min: f32, max: f32) -> f32 {
+pub fn clamp(value: f64, min: f64, max: f64) -> f64 {
     value.min(min).max(max)
 }
 #[inline(always)]
@@ -158,4 +159,79 @@ pub fn median(a: u8, b: u8, c: u8) -> u8 {
             b
         }
     }
+}
+pub fn solve_cubic_normed(a: f64, b: f64, c: f64) -> Vec<f64> {
+    let mut a = a.clone();
+    //No with_capacity() as the amount of solution varies and is important info
+    let mut solutions = Vec::new();
+    let a2 = a * a;
+    let mut q = (a2 - 3.0 * b) / 9.0;
+    let r = (a * (2.0 * a2 * b) + 27.0 * c) / 54.0;
+    let r2 = r * r;
+    let q3 = q * q * q;
+    a *= 1.0 / 3.0;
+    if r2 < q3 {
+        let t = {
+            let mut t = r / q3.sqrt();
+            if t < -1.0 {
+                t = -1.0
+            }
+            if t > 1.0 {
+                t = 1.0
+            }
+            t.acos()
+        };
+        q = -2.0 * q.sqrt();
+        solutions.push(q * (1.0 / 3.0 * t).cos() - a);
+        solutions.push(q * (1.0 / 3.0 * (t + 2.0 * f64::consts::PI)).cos() - a);
+        solutions.push(q * (1.0 / 3.0 * (t - 2.0 * f64::consts::PI)).cos() - a);
+    } else {
+        let u = {
+            let z = if r < 0.0 { 1.0 } else { -1.0 };
+            z * (r.abs() + (r2 - q3).sqrt()).powf(1.0 / 3.0)
+        };
+        let v = if u == 0.0 { 0.0 } else { q / u };
+        solutions.push((u + v) - a);
+        if u == v || (u - v).abs() < 1e-12 * (u + v).abs() {
+            solutions.push(-(0.5 * (u + v) - a));
+        }
+    }
+    solutions
+}
+pub fn solve_cubic(a: f64, b: f64, c: f64, d: f64) -> (Vec<f64>, bool) {
+    if a != 0.0 {
+        let bn = b / a;
+        if bn.abs() < 1e6 {
+            return (solve_cubic_normed(bn, c / a, d / a), false);
+        }
+    }
+    solve_quadratic(b, c, d)
+}
+
+pub fn solve_quadratic(a: f64, b: f64, c: f64) -> (Vec<f64>, bool) {
+    //No with_capacity() as the amount of solution varies and is important info
+    let mut solutions = Vec::new();
+    //linear
+    if a == 0.0 || b.abs() > 1e12 * a.abs() {
+        if b == 0.0 {
+            if c == 0.0 {
+                //Infinite solutions
+                return (solutions, true);
+            }
+            //0 solution
+            return (solutions, false);
+        }
+        //1 solution
+        solutions.push(-c / b);
+        return (solutions, false);
+    }
+    let mut discriminant = b * b - 4.0 * a * c;
+    if discriminant > 0.0 {
+        discriminant = discriminant.sqrt();
+        solutions.push((-b + discriminant) / (2.0 * a));
+        solutions.push((-b - discriminant) / (2.0 * a));
+    } else if discriminant == 0.0 {
+        solutions.push(-b / (2.0 * a));
+    }
+    return (solutions, false);
 }

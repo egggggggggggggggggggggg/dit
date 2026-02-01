@@ -5,6 +5,7 @@ use std::sync::Arc;
 use crate::cursor::Cursor;
 use crate::error::{Error, ReadError};
 pub use crate::table::*;
+use math::bezier::BezierTypes;
 use math::lalg::{BezierCurve, Transform, transform_curve};
 use std::fs::File;
 use std::io::Read;
@@ -67,7 +68,7 @@ impl TtfFont {
         }
         None
     }
-    pub fn assemble_glyf(&mut self, gid: GlyphId) -> Result<Vec<Vec<BezierCurve>>, Error> {
+    pub fn assemble_glyf(&mut self, gid: GlyphId) -> Result<Vec<Vec<BezierTypes>>, Error> {
         let glyph = self.parse_gid(gid).unwrap().unwrap();
         let mut stack = vec![(glyph, Transform::identity())];
         let mut contours = Vec::new();
