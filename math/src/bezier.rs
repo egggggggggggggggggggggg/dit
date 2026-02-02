@@ -6,9 +6,9 @@ use crate::{
 const MSDFGEN_CUBIC_SEARCH_STARTS: usize = 4;
 const MSDFGEN_CUBIC_SEARCH_STEPS: usize = 4;
 #[derive(Clone, Copy)]
-struct SignedDistance {
-    distance: f64,
-    dot: f64,
+pub struct SignedDistance {
+    pub distance: f64,
+    pub dot: f64,
 }
 impl Default for SignedDistance {
     fn default() -> Self {
@@ -63,7 +63,7 @@ impl From<u8> for EdgeColor {
         }
     }
 }
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 ///AABB - Think it does work for stuff besides bezier curves
 ///
 pub struct Bounds {
@@ -73,7 +73,7 @@ pub struct Bounds {
     pub y_max: f64,
 }
 impl Bounds {
-    fn new(x_min: f64, x_max: f64, y_min: f64, y_max: f64) -> Self {
+    pub fn new(x_min: f64, x_max: f64, y_min: f64, y_max: f64) -> Self {
         Self {
             x_min,
             x_max,
@@ -82,7 +82,7 @@ impl Bounds {
         }
     }
     ///Includes a point within the bb
-    fn include_point(&mut self, p: Vec2) {
+    pub fn include_point(&mut self, p: Vec2) {
         if p.x < self.x_min {
             self.x_min = p.x
         };
@@ -105,6 +105,9 @@ pub enum BezierTypes {
     Cubic(CubicBezier),
 }
 impl Bezier for BezierTypes {
+    ///Gets the point at that specified param value
+    ///Bezier curves can be though of as stacking lerps hence the param or t value
+    ///t = [0.0 to 1.0]
     fn point(&self, param: f64) -> Vec2 {
         match self {
             BezierTypes::Linear(b) => b.point(param),
@@ -112,6 +115,7 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.point(param),
         }
     }
+    ///Given a point on the curve it returns the direcftion vector at said point
     fn direction(&self, param: f64) -> Vec2 {
         match self {
             BezierTypes::Linear(b) => b.direction(param),
@@ -119,6 +123,7 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.direction(param),
         }
     }
+    ///Changes the direction
     fn direction_change(&self, param: f64) -> Vec2 {
         match self {
             BezierTypes::Linear(b) => b.direction_change(param),
@@ -126,6 +131,7 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.direction_change(param),
         }
     }
+    ///Returns the signed distance from a point on the curve to another point p
     fn signed_distance(&self, origin: Vec2, param: f64) -> SignedDistance {
         match self {
             BezierTypes::Linear(b) => b.signed_distance(origin, param),
@@ -133,6 +139,7 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.signed_distance(origin, param),
         }
     }
+    ///Puts the bezier curve into the bounding box provided
     fn bound(&self, bounds: &mut Bounds) {
         match self {
             BezierTypes::Linear(b) => b.bound(bounds),
@@ -140,6 +147,8 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.bound(bounds),
         }
     }
+    ///Reverses the curve swapping the end with the start and adjusting
+    //the points in between
     fn reverse(&mut self) {
         match self {
             BezierTypes::Linear(b) => b.reverse(),
@@ -147,6 +156,7 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.reverse(),
         }
     }
+    ///Moves the start point of the curve and adjusts to perserve curve
     fn move_start(&mut self, to: Vec2) {
         match self {
             BezierTypes::Linear(b) => b.move_start(to),
@@ -154,6 +164,7 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.move_start(to),
         }
     }
+    ///Moves the end point of the curve and adjusts to perserve curve
     fn move_end(&mut self, to: Vec2) {
         match self {
             BezierTypes::Linear(b) => b.move_end(to),
@@ -161,13 +172,15 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.move_end(to),
         }
     }
-    fn split_in_thirds(&self) {
+    ///Splits the bezier into thirds.
+    fn split_in_thirds(&self) -> [Self; 3] {
         match self {
-            BezierTypes::Linear(b) => b.split_in_thirds(),
-            BezierTypes::Quadratic(b) => b.split_in_thirds(),
-            BezierTypes::Cubic(b) => b.split_in_thirds(),
+            BezierTypes::Linear(b) => b.split_in_thirds().map(|x| BezierTypes::Linear(x)),
+            BezierTypes::Quadratic(b) => b.split_in_thirds().map(|x| BezierTypes::Quadratic(x)),
+            BezierTypes::Cubic(b) => b.split_in_thirds().map(|x| BezierTypes::Cubic(x)),
         }
     }
+    ///Gets the color of the curve
     fn color(&self) -> EdgeColor {
         match self {
             BezierTypes::Linear(b) => b.color(),
@@ -175,6 +188,7 @@ impl Bezier for BezierTypes {
             BezierTypes::Cubic(b) => b.color(),
         }
     }
+    ///Sets the color of the curve
     fn set_color(&mut self, color: EdgeColor) {
         match self {
             BezierTypes::Linear(b) => b.set_color(color),
@@ -224,7 +238,7 @@ pub trait Bezier: Clone + Copy {
     fn reverse(&mut self);
     fn move_start(&mut self, to: Vec2);
     fn move_end(&mut self, to: Vec2);
-    fn split_in_thirds(&self);
+    fn split_in_thirds(&self) -> [Self; 3];
     fn color(&self) -> EdgeColor;
     fn set_color(&mut self, color: EdgeColor);
 }
@@ -244,21 +258,18 @@ pub struct CubicBezier {
     pub p: [Vec2; 4],
 }
 impl LinearBezier {
-    pub fn new(p0: Vec2, p1: Vec2) -> Self {
-        Self {
-            p: [p0, p1],
-            color: EdgeColor::WHITE,
-        }
+    pub fn new(p0: Vec2, p1: Vec2, color: EdgeColor) -> Self {
+        Self { p: [p0, p1], color }
     }
     pub fn length(&self) -> f64 {
         (self.p[1] - self.p[0]).length()
     }
 }
 impl QuadraticBezier {
-    pub fn new(p0: Vec2, p1: Vec2, p2: Vec2) -> Self {
+    pub fn new(p0: Vec2, p1: Vec2, p2: Vec2, color: EdgeColor) -> Self {
         Self {
             p: [p0, p1, p2],
-            color: EdgeColor::WHITE,
+            color,
         }
     }
     pub fn length(&self) -> f64 {
@@ -277,10 +288,10 @@ impl QuadraticBezier {
     }
 }
 impl CubicBezier {
-    pub fn new(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2) -> Self {
+    pub fn new(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, color: EdgeColor) -> Self {
         Self {
             p: [p0, p1, p2, p3],
-            color: EdgeColor::WHITE,
+            color,
         }
     }
 }
@@ -340,7 +351,12 @@ impl Bezier for LinearBezier {
     fn move_start(&mut self, to: Vec2) {
         self.p[0] = to;
     }
-    fn split_in_thirds(&self) {}
+    fn split_in_thirds(&self) -> [Self; 3] {
+        let part0 = LinearBezier::new(self.p[0], self.point(1.0 / 3.0), self.color);
+        let part1 = LinearBezier::new(self.point(1.0 / 3.0), self.point(2.0 / 3.0), self.color);
+        let part2 = LinearBezier::new(self.point(2.0 / 3.0), self.p[1], self.color);
+        [part0, part1, part2]
+    }
     fn bound(&self, bounds: &mut Bounds) {
         bounds.include_point(self.p[0]);
         bounds.include_point(self.p[1]);
@@ -465,7 +481,32 @@ impl Bezier for QuadraticBezier {
     fn set_color(&mut self, color: EdgeColor) {
         self.color = color;
     }
-    fn split_in_thirds(&self) {}
+    fn split_in_thirds(&self) -> [Self; 3] {
+        let part0 = QuadraticBezier::new(
+            self.p[0],
+            mix(self.p[0], self.p[1], 1.0 / 3.0),
+            self.point(1.0 / 3.0),
+            self.color,
+        );
+        let part1 = QuadraticBezier::new(
+            self.point(1.0 / 3.0),
+            mix(
+                mix(self.p[0], self.p[1], 5.0 / 9.0),
+                mix(self.p[1], self.p[2], 4.0 / 9.0),
+                0.5,
+            ),
+            self.point(2.0 / 3.0),
+            self.color,
+        );
+
+        let part2 = QuadraticBezier::new(
+            self.point(2.0 / 3.0),
+            mix(self.p[1], self.p[2], 2.0 / 3.0),
+            self.p[2],
+            self.color,
+        );
+        [part0, part1, part2]
+    }
     fn point(&self, param: f64) -> Vec2 {
         mix(
             mix(self.p[0], self.p[1], param),
@@ -611,7 +652,71 @@ impl Bezier for CubicBezier {
     fn set_color(&mut self, color: EdgeColor) {
         self.color = color;
     }
-    fn split_in_thirds(&self) {}
+    fn split_in_thirds(&self) -> [Self; 3] {
+        //Will reduce this later on, just copying it straight from msdfgen to see if it works first
+        let part0 = CubicBezier::new(
+            self.p[0],
+            if self.p[0] == self.p[1] {
+                self.p[0]
+            } else {
+                mix(self.p[0], self.p[1], 1.0 / 3.0)
+            },
+            mix(
+                mix(self.p[0], self.p[1], 1.0 / 3.0),
+                mix(self.p[1], self.p[2], 1.0 / 3.0),
+                1.0 / 3.0,
+            ),
+            self.point(1.0 / 3.0),
+            self.color,
+        );
+        let part1 = CubicBezier::new(
+            self.point(1.0 / 3.0),
+            mix(
+                mix(
+                    mix(self.p[0], self.p[1], 1.0 / 3.0),
+                    mix(self.p[1], self.p[2], 1.0 / 3.0),
+                    1.0 / 3.0,
+                ),
+                mix(
+                    mix(self.p[1], self.p[2], 1.0 / 3.0),
+                    mix(self.p[2], self.p[3], 1.0 / 3.0),
+                    1.0 / 3.0,
+                ),
+                2.0 / 3.0,
+            ),
+            mix(
+                mix(
+                    mix(self.p[0], self.p[1], 2.0 / 3.0),
+                    mix(self.p[1], self.p[2], 2.0 / 3.0),
+                    2.0 / 3.0,
+                ),
+                mix(
+                    mix(self.p[1], self.p[2], 2.0 / 3.0),
+                    mix(self.p[2], self.p[3], 2.0 / 3.0),
+                    2.0 / 3.0,
+                ),
+                1.0 / 3.0,
+            ),
+            self.point(2.0 / 3.0),
+            self.color,
+        );
+        let part2 = CubicBezier::new(
+            self.point(2.0 / 3.0),
+            mix(
+                mix(self.p[1], self.p[2], 2.0 / 3.0),
+                mix(self.p[2], self.p[3], 2.0 / 3.0),
+                2.0 / 3.0,
+            ),
+            if self.p[2] == self.p[3] {
+                self.p[3]
+            } else {
+                mix(self.p[2], self.p[3], 2.0 / 3.0)
+            },
+            self.p[3],
+            self.color,
+        );
+        [part0, part1, part2]
+    }
     fn point(&self, param: f64) -> Vec2 {
         let p12 = mix(self.p[1], self.p[2], param);
         return mix(

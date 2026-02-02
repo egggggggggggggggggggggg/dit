@@ -1,5 +1,6 @@
 pub mod allocator;
 pub mod atlas;
+pub mod edge_selectors;
 pub mod msdf;
 use core::{f32, panic};
 use std::time::Instant;

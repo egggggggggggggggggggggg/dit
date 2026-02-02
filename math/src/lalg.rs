@@ -1,9 +1,9 @@
 use std::{
     cmp::Ordering,
-    ops::{Add, Div, Mul, Sub},
+    ops::{Add, Div, Mul, Neg, Sub},
 };
 
-use crate::bezier::{Bezier, BezierTypes, CubicBezier, LinearBezier, QuadraticBezier};
+use crate::bezier::{Bezier, BezierTypes, CubicBezier, EdgeColor, LinearBezier, QuadraticBezier};
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Vec2 {
     pub x: f64,
@@ -24,7 +24,22 @@ impl Vec2 {
     }
     #[inline(always)]
     pub fn normalize(&self) -> Self {
-        *self / self.magnitude()
+        self.normalize_allow_zero(false)
+    }
+    #[inline(always)]
+    pub fn normalize_allow_zero(&self, allow_zero: bool) -> Self {
+        let len = self.length();
+
+        if len != 0.0 {
+            Self {
+                x: self.x / len,
+                y: self.y / len,
+            }
+        } else if allow_zero {
+            Self { x: 0.0, y: 0.0 }
+        } else {
+            Self { x: 0.0, y: 1.0 }
+        }
     }
     #[inline(always)]
     pub fn length(&self) -> f64 {
@@ -114,6 +129,21 @@ impl Mul for Vec2 {
     }
     type Output = f64;
 }
+impl Neg for Vec2 {
+    fn neg(self) -> Self::Output {
+        Self {
+            x: -self.x,
+            y: -self.y,
+        }
+    }
+    type Output = Self;
+}
+impl Eq for Vec2 {}
+impl PartialEq for Vec2 {
+    fn eq(&self, other: &Self) -> bool {
+        self.x != other.x || self.y != other.y
+    }
+}
 #[derive(Debug, Clone, Copy)]
 pub struct Transform {
     pub a: f64,
@@ -164,17 +194,20 @@ pub fn transform_curve(curve: &BezierTypes, t: Transform) -> BezierTypes {
         BezierTypes::Linear(l_bezier) => BezierTypes::Linear(LinearBezier::new(
             t.apply(l_bezier.p[0]),
             t.apply(l_bezier.p[1]),
+            EdgeColor::WHITE,
         )),
         BezierTypes::Quadratic(q_bezier) => BezierTypes::Quadratic(QuadraticBezier::new(
             t.apply(q_bezier.p[0]),
             t.apply(q_bezier.p[1]),
             t.apply(q_bezier.p[2]),
+            EdgeColor::WHITE,
         )),
         BezierTypes::Cubic(c_bezier) => BezierTypes::Cubic(CubicBezier::new(
             t.apply(c_bezier.p[0]),
             t.apply(c_bezier.p[1]),
             t.apply(c_bezier.p[2]),
             t.apply(c_bezier.p[3]),
+            EdgeColor::WHITE,
         )),
     }
 }

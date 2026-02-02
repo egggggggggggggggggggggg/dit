@@ -4,7 +4,7 @@ use crate::{
     table::{GlyphId, TableRecord},
 };
 use math::{
-    bezier::{BezierTypes, LinearBezier, QuadraticBezier},
+    bezier::{BezierTypes, EdgeColor, LinearBezier, QuadraticBezier},
     lalg::{BezierCurve, Transform, Vec2},
 };
 use std::{collections::HashMap, sync::Arc};
@@ -366,14 +366,23 @@ fn curve_from_coords(
         let (p0, on0) = expanded[i];
         let (p1, on1) = expanded[i + 1];
         if on0 && on1 {
-            curves.push(BezierTypes::Linear(LinearBezier::new(p0, p1)));
+            curves.push(BezierTypes::Linear(LinearBezier::new(
+                p0,
+                p1,
+                EdgeColor::WHITE,
+            )));
             i += 1;
         } else if on0 && !on1 {
             let (p2, on2) = expanded[(i + 2) % expanded.len()];
             if !on2 {
                 return Err(Error::Unknown);
             }
-            curves.push(BezierTypes::Quadratic(QuadraticBezier::new(p0, p1, p2)));
+            curves.push(BezierTypes::Quadratic(QuadraticBezier::new(
+                p0,
+                p1,
+                p2,
+                EdgeColor::WHITE,
+            )));
             i += 2;
         } else {
             return Err(Error::Unknown);
