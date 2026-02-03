@@ -1,17 +1,17 @@
 pub mod allocator;
 pub mod atlas;
+pub mod edge_coloring;
 pub mod edge_selectors;
 pub mod msdf;
-use core::{f32, panic};
-use std::time::Instant;
-use std::{f32::EPSILON, vec};
-
 use atlas::*;
+use core::{f32, panic};
 use font_parser::{GlyphHeader, TtfFont};
 use image::{ImageBuffer, Pixel, Rgb, Rgba};
 use math::bezier::BezierTypes;
 use math::calc::{Polynomial, Range, bisection, median};
 use math::lalg::{BezierCurve, BinaryVector, Vec2};
+use std::time::Instant;
+use std::{f32::EPSILON, vec};
 
 use crate::allocator::ShelfAllocator;
 pub fn entry() -> Atlas<char, Rgb<u8>, ShelfAllocator> {

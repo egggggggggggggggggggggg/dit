@@ -35,7 +35,7 @@ impl PartialOrd for SignedDistance {
     }
 }
 bitflags::bitflags! {
-    #[derive(Clone, Copy, Eq, PartialEq, Debug)]
+    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
     pub struct EdgeColor: u8 {
         const BLACK = 0;
         const RED = 1;
