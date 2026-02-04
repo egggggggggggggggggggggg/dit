@@ -10,7 +10,7 @@ use crate::{
 };
 
 const DISTANCE_DELTA_FACTOR: f64 = 1.001;
-pub trait DistanceSelector {
+pub trait DistanceSelector: Default {
     type Distance;
     type EdgeCache;
     fn reset(&mut self, p: Vec2);
@@ -23,10 +23,10 @@ pub trait DistanceSelector {
     );
     fn merge(&mut self, other: Self);
     fn distance(&mut self) -> Self::Distance;
-    fn true_distance(&self) -> SignedDistance;
+    // fn true_distance(&self) -> SignedDistance;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct PerpendicularDistanceSelector {
     edge_cache: PerpendicularEdgeCache,
     min_true_distance: SignedDistance,
@@ -36,14 +36,19 @@ struct PerpendicularDistanceSelector {
     near_edge_param: f64,
 }
 impl PerpendicularDistanceSelector {
-    fn reset(&mut self, delta: f64) {
+    pub fn reset(&mut self, delta: f64) {
         self.min_true_distance.distance += non_zero_sign(self.min_true_distance.distance) * delta;
         self.min_neg_perp_distance = -self.min_true_distance.distance.abs();
         self.min_pos_perp_distance = self.min_true_distance.distance.abs();
         self.near_edge = None;
         self.near_edge_param = 0.0;
     }
-    fn is_edge_relevant(&self, cache: &PerpendicularEdgeCache, edge: BezierTypes, p: Vec2) -> bool {
+    pub fn is_edge_relevant(
+        &self,
+        cache: &PerpendicularEdgeCache,
+        edge: BezierTypes,
+        p: Vec2,
+    ) -> bool {
         //might be wrong
         let delta = DISTANCE_DELTA_FACTOR * (p - cache.point).length();
 
@@ -68,14 +73,19 @@ impl PerpendicularDistanceSelector {
             || (r7 && ((r8 && r9) || (!r8 && r10)));
         conditions
     }
-    fn add_edge_true_distance(&mut self, edge: BezierTypes, distance: SignedDistance, param: f64) {
+    pub fn add_edge_true_distance(
+        &mut self,
+        edge: BezierTypes,
+        distance: SignedDistance,
+        param: f64,
+    ) {
         if distance < self.min_true_distance {
             self.min_true_distance = distance;
             self.near_edge = Some(edge);
             self.near_edge_param = param;
         }
     }
-    fn add_edge_perpendicular_distance(&mut self, distance: f64) {
+    pub fn add_edge_perpendicular_distance(&mut self, distance: f64) {
         if distance <= 0.0 && distance > self.min_neg_perp_distance {
             self.min_neg_perp_distance = distance;
         }
@@ -83,7 +93,7 @@ impl PerpendicularDistanceSelector {
             self.min_pos_perp_distance = distance;
         }
     }
-    fn merge(&mut self, other: &Self) {
+    pub fn merge(&mut self, other: &Self) {
         if other.min_true_distance < self.min_true_distance {
             self.min_true_distance = other.min_true_distance;
             self.near_edge = other.near_edge;
@@ -96,7 +106,7 @@ impl PerpendicularDistanceSelector {
             self.min_pos_perp_distance = other.min_pos_perp_distance;
         }
     }
-    fn compute_distance(&mut self, p: Vec2) -> f64 {
+    pub fn compute_distance(&mut self, p: Vec2) -> f64 {
         let mut min_dist = if self.min_true_distance.distance < 0.0 {
             self.min_neg_perp_distance
         } else {
@@ -111,18 +121,18 @@ impl PerpendicularDistanceSelector {
         }
         min_dist
     }
-    fn true_distance(&self) -> SignedDistance {
+    pub fn true_distance(&self) -> SignedDistance {
         self.min_true_distance
     }
 }
-
+#[derive(Default)]
 struct TrueDistanceSelector {
     p: Vec2,
     min_distance: SignedDistance,
 }
 impl DistanceSelector for TrueDistanceSelector {
     type EdgeCache = TrueDistanceEdgeCache;
-    type DistanceType = f64;
+    type Distance = f64;
     fn reset(&mut self, p: Vec2) {
         let delta = (p - self.p).length() * DISTANCE_DELTA_FACTOR;
         // Since minDistance.distance is initialized to -DBL_MAX, at first glance this seems like it could make it underflow to -infinity, but in practice delta would have to be extremely high for this to happen (above 9e291)
@@ -147,16 +157,16 @@ impl DistanceSelector for TrueDistanceSelector {
             cache.abs_distance = distance.distance.abs();
         }
     }
-    fn merge(&mut self, other: &Self) {
+    fn merge(&mut self, other: Self) {
         if other.min_distance < self.min_distance {
             self.min_distance = other.min_distance;
         }
     }
-    fn distance(&self) -> f64 {
+    fn distance(&mut self) -> f64 {
         self.min_distance.distance
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct MultiDistanceSelector {
     p: Vec2,
     r: PerpendicularDistanceSelector,
@@ -258,6 +268,8 @@ impl DistanceSelector for MultiDistanceSelector {
             b: self.b.compute_distance(self.p),
         }
     }
+}
+impl MultiDistanceSelector {
     fn true_distance(&self) -> SignedDistance {
         let mut distance = self.r.true_distance();
         if self.g.true_distance() < distance {
@@ -269,7 +281,6 @@ impl DistanceSelector for MultiDistanceSelector {
         distance
     }
 }
-
 pub fn get_perpendicular_distance(distance: &mut f64, ep: Vec2, edge_dir: Vec2) -> bool {
     let ts = ep.dot(edge_dir);
     if ts > 0.0 {

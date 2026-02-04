@@ -141,7 +141,7 @@ pub fn clamp(value: f64, min: f64, max: f64) -> f64 {
     value.min(min).max(max)
 }
 #[inline(always)]
-pub fn median(a: u8, b: u8, c: u8) -> u8 {
+pub fn median<T: PartialOrd + Copy>(a: T, b: T, c: T) -> T {
     if a < b {
         if b < c {
             b
@@ -160,6 +160,7 @@ pub fn median(a: u8, b: u8, c: u8) -> u8 {
         }
     }
 }
+
 pub fn solve_cubic_normed(a: f64, b: f64, c: f64) -> Vec<f64> {
     let mut a = a.clone();
     //No with_capacity() as the amount of solution varies and is important info

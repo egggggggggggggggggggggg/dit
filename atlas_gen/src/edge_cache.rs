@@ -17,7 +17,7 @@ impl TrueDistanceEdgeCache {
         self.abs_distance = f64::INFINITY;
     }
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PerpendicularEdgeCache {
     pub point: Vec2,
     pub abs_distance: f64,
