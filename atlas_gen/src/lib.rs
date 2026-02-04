@@ -1,5 +1,8 @@
 pub mod allocator;
 pub mod atlas;
+pub mod contour_combiner;
+pub mod distances;
+pub mod edge_cache;
 pub mod edge_coloring;
 pub mod edge_selectors;
 pub mod msdf;
