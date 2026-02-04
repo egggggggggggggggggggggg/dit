@@ -11,8 +11,23 @@ trait DistancePixelConversion {
 
     fn write_pixel(&self, pixels: &mut [f32], distance: Self::Distance);
 }
+//workaround for types being unable to defined in an impl block
+//could possible write a macro that allows you to access all the fields of a struct or smth
+pub trait DistanceType: Default {
+    fn resolve(&self) -> f64;
+    fn init() -> Self;
+}
+pub type RegDistance = f64;
+impl DistanceType for RegDistance {
+    fn resolve(&self) -> f64 {
+        *self
+    }
+    fn init() -> Self {
+        -f64::MAX
+    }
+}
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct MultiDistance {
     pub r: f64,
     pub g: f64,
@@ -26,12 +41,16 @@ impl MultiDistance {
             g: -f64::MAX,
         }
     }
+}
+impl DistanceType for MultiDistance {
     fn resolve(&self) -> f64 {
         median(self.r, self.g, self.b)
     }
+    fn init() -> Self {
+        Self::new()
+    }
 }
-
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct MultiAndTrueDistance {
     pub base: MultiDistance,
     pub a: f64,
@@ -42,6 +61,14 @@ impl MultiAndTrueDistance {
             base: MultiDistance::new(),
             a: -f64::MAX,
         }
+    }
+}
+impl DistanceType for MultiAndTrueDistance {
+    fn resolve(&self) -> f64 {
+        median(self.base.r, self.base.g, self.base.b)
+    }
+    fn init() -> Self {
+        Self::new()
     }
 }
 struct DistanceMapping {

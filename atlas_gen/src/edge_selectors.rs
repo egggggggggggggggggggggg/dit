@@ -5,13 +5,13 @@ use math::{
 };
 
 use crate::{
-    distances::MultiDistance,
+    distances::{DistanceType, MultiDistance},
     edge_cache::{PerpendicularEdgeCache, TrueDistanceEdgeCache},
 };
 
 const DISTANCE_DELTA_FACTOR: f64 = 1.001;
 pub trait DistanceSelector: Default {
-    type Distance;
+    type Distance: DistanceType;
     type EdgeCache;
     fn reset(&mut self, p: Vec2);
     fn add_edge(
@@ -22,7 +22,7 @@ pub trait DistanceSelector: Default {
         next_edge: BezierTypes,
     );
     fn merge(&mut self, other: Self);
-    fn distance(&mut self) -> Self::Distance;
+    fn distance<T: DistanceType>(&mut self) -> T;
     // fn true_distance(&self) -> SignedDistance;
 }
 
@@ -162,8 +162,10 @@ impl DistanceSelector for TrueDistanceSelector {
             self.min_distance = other.min_distance;
         }
     }
-    fn distance(&mut self) -> f64 {
-        self.min_distance.distance
+    fn distance<T: DistanceType>(&mut self) -> T {
+        self.min_distance.distance;
+        //temporary placeholder
+        T::default()
     }
 }
 #[derive(Clone, Default)]
@@ -261,12 +263,13 @@ impl DistanceSelector for MultiDistanceSelector {
         self.g.merge(&other.g);
         self.b.merge(&other.b);
     }
-    fn distance(&mut self) -> Self::Distance {
+    fn distance<T: DistanceType>(&mut self) -> T {
         MultiDistance {
             r: self.r.compute_distance(self.p),
             g: self.g.compute_distance(self.p),
             b: self.b.compute_distance(self.p),
         }
+        
     }
 }
 impl MultiDistanceSelector {
