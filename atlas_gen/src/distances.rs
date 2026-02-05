@@ -1,6 +1,6 @@
 use std::ops::{Div, DivAssign, Mul, MulAssign};
 
-use math::calc::median;
+use math::{calc::median, lalg::Vec2};
 
 //workaround for types being unable to defined in an impl block
 //could possible write a macro that allows you to access all the fields of a struct or smth
@@ -157,4 +157,69 @@ trait DistancePixelConversion {
     type Distance;
     const CHANNELS: usize;
     fn write_pixel(&self, pixels: &mut [f32], distance: Self::Distance);
+}
+
+#[derive(Copy, Clone, Debug)]
+pub struct Projection {
+    pub scale: Vec2,
+    pub translate: Vec2,
+}
+
+impl Default for Projection {
+    fn default() -> Self {
+        Self {
+            scale: Vec2 { x: 1.0, y: 1.0 },
+            translate: Vec2 { x: 0.0, y: 0.0 },
+        }
+    }
+}
+
+impl Projection {
+    pub fn new(scale: Vec2, translate: Vec2) -> Self {
+        Self { scale, translate }
+    }
+
+    pub fn project(&self, coord: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.scale.x * (coord.x + self.translate.x),
+            y: self.scale.y * (coord.y + self.translate.y),
+        }
+    }
+
+    pub fn unproject(&self, coord: Vec2) -> Vec2 {
+        Vec2 {
+            x: coord.x / self.scale.x - self.translate.x,
+            y: coord.y / self.scale.y - self.translate.y,
+        }
+    }
+
+    pub fn project_vector(&self, vector: Vec2) -> Vec2 {
+        Vec2 {
+            x: self.scale.x * vector.x,
+            y: self.scale.y * vector.y,
+        }
+    }
+
+    pub fn unproject_vector(&self, vector: Vec2) -> Vec2 {
+        Vec2 {
+            x: vector.x / self.scale.x,
+            y: vector.y / self.scale.y,
+        }
+    }
+
+    pub fn project_x(&self, x: f64) -> f64 {
+        self.scale.x * (x + self.translate.x)
+    }
+
+    pub fn project_y(&self, y: f64) -> f64 {
+        self.scale.y * (y + self.translate.y)
+    }
+
+    pub fn unproject_x(&self, x: f64) -> f64 {
+        x / self.scale.x - self.translate.x
+    }
+
+    pub fn unproject_y(&self, y: f64) -> f64 {
+        y / self.scale.y - self.translate.y
+    }
 }

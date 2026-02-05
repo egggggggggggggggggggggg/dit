@@ -30,7 +30,9 @@ impl Shape {
         self.bounds
     }
     pub fn scanline() {}
-    pub fn edge_count(&self) {}
+    pub fn edge_count(&self) -> usize {
+        1
+    }
     pub fn orient_contours(&mut self) {
         let orientations: Vec<f64> = Vec::with_capacity(self.contours.len());
         let intersections: Vec<Intersections> = Vec::new();

@@ -12,9 +12,9 @@ use math::{
 const DISTANCE_DELTA_FACTOR: f64 = 1.001;
 
 pub trait DistanceSelector: Default {
-    type ResetType;
+    type ResetType: Copy + Default;
     type DistanceType: DistanceType;
-    type EdgeCache;
+    type EdgeCache: Default;
     fn reset(&mut self, d: Self::ResetType);
     fn add_edge(
         &mut self,

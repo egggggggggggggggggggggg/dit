@@ -1,13 +1,12 @@
 pub mod allocator;
 pub mod atlas;
 pub mod cont_comb;
-pub mod contour_combiner;
+// pub mod contour_combiner;
 pub mod distances;
 pub mod edge_cache;
 pub mod edge_coloring;
 pub mod edge_select;
-pub mod edge_selectors;
-pub mod msdf;
+// pub mod edge_selectors;
 pub mod shape_distance_finder;
 use atlas::*;
 use core::{f32, panic};
@@ -20,6 +19,8 @@ use std::time::Instant;
 use std::{f32::EPSILON, vec};
 
 use crate::allocator::ShelfAllocator;
+use shape_distance_finder::*;
+
 // pub fn entry() -> Atlas<char, Rgb<u8>, ShelfAllocator> {
 //     let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
 //     let atlas_allocator = ShelfAllocator::new(512, 512);

@@ -1,6 +1,6 @@
 use math::lalg::Vec2;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct TrueDistanceEdgeCache {
     pub point: Vec2,
     pub abs_distance: f64,
