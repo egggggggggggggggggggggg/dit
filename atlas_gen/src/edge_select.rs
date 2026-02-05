@@ -1,19 +1,19 @@
+use crate::{
+    distances::{DistanceType, MultiDistance, RegDistance},
+    edge_cache::{PerpendicularEdgeCache, TrueDistanceEdgeCache},
+};
 use math::{
     arit::non_zero_sign,
     bezier::{Bezier, BezierTypes, EdgeColor, SignedDistance},
     lalg::Vec2,
 };
-
-use crate::{
-    distances::{DistanceType, MultiDistance},
-    edge_cache::{PerpendicularEdgeCache, TrueDistanceEdgeCache},
-};
-
 const DISTANCE_DELTA_FACTOR: f64 = 1.001;
-pub trait DistanceSelector: Default + Clone {
-    type Distance: DistanceType;
+
+pub trait DistanceSelector {
+    type ResetType;
+    type DistanceType: DistanceType;
     type EdgeCache;
-    fn reset(&mut self, p: Vec2);
+    fn reset(&mut self, d: Self::ResetType);
     fn add_edge(
         &mut self,
         cache: &mut Self::EdgeCache,
@@ -22,12 +22,11 @@ pub trait DistanceSelector: Default + Clone {
         next_edge: BezierTypes,
     );
     fn merge(&mut self, other: &Self);
-    fn distance(&mut self) -> Self::Distance;
-    // fn true_distance(&self) -> SignedDistance;
+    fn distance(&mut self) -> Self::DistanceType;
 }
 
-#[derive(Clone, Default)]
-pub struct PerpendicularDistanceSelector {
+#[derive(Default, Clone)]
+pub struct PerpDistSelectorBase {
     edge_cache: PerpendicularEdgeCache,
     min_true_distance: SignedDistance,
     min_neg_perp_distance: f64,
@@ -35,7 +34,7 @@ pub struct PerpendicularDistanceSelector {
     near_edge: Option<BezierTypes>,
     near_edge_param: f64,
 }
-impl PerpendicularDistanceSelector {
+impl PerpDistSelectorBase {
     pub fn reset(&mut self, delta: f64) {
         self.min_true_distance.distance += non_zero_sign(self.min_true_distance.distance) * delta;
         self.min_neg_perp_distance = -self.min_true_distance.distance.abs();
@@ -125,64 +124,80 @@ impl PerpendicularDistanceSelector {
         self.min_true_distance
     }
 }
+
 #[derive(Default, Clone)]
-pub struct TrueDistanceSelector {
+pub struct PerpendicularDistanceSelector {
+    base: PerpDistSelectorBase,
     p: Vec2,
-    min_distance: SignedDistance,
 }
-impl DistanceSelector for TrueDistanceSelector {
-    type EdgeCache = TrueDistanceEdgeCache;
-    type Distance = f64;
-    fn reset(&mut self, p: Vec2) {
-        let delta = (p - self.p).length() * DISTANCE_DELTA_FACTOR;
-        self.min_distance.distance += non_zero_sign(self.min_distance.distance) * delta;
-        self.p = p;
-    }
+impl DistanceSelector for PerpendicularDistanceSelector {
+    type DistanceType = RegDistance;
+    type EdgeCache = PerpendicularEdgeCache;
+    type ResetType = Vec2;
     fn add_edge(
         &mut self,
-        cache: &mut TrueDistanceEdgeCache,
+        cache: &mut Self::EdgeCache,
         prev_edge: BezierTypes,
         edge: BezierTypes,
         next_edge: BezierTypes,
     ) {
-        let delta = DISTANCE_DELTA_FACTOR * (self.p - cache.point).length();
-        if cache.abs_distance - delta <= self.min_distance.distance.abs() {
-            let dummy = 0.0;
-            let distance = edge.signed_distance(self.p, dummy);
-            if distance < self.min_distance {
-                self.min_distance = distance;
-            }
+        if self.base.is_edge_relevant(&cache, edge, self.p) {
+            let mut param = 0.0;
+            let distance = edge.signed_distance(self.p, &mut param);
+            self.base.add_edge_true_distance(edge, distance, param);
             cache.point = self.p;
             cache.abs_distance = distance.distance.abs();
+            let ap = self.p - edge.point(0.0);
+            let bp = self.p - edge.point(1.0);
+            let a_dir = edge.direction(0.0).normalize_allow_zero(true);
+            let b_dir = edge.direction(1.0).normalize_allow_zero(true);
+            let prev_dir = prev_edge.direction(1.0).normalize_allow_zero(true);
+            let next_dir = next_edge.direction(0.0).normalize_allow_zero(true);
+            let add = ap.dot((prev_dir + a_dir).normalize_allow_zero(true));
+            let bdd = -bp.dot((b_dir + next_dir).normalize_allow_zero(true));
+            if add > 0.0 {
+                let mut pd = distance.distance;
+                if get_perpendicular_distance(&mut pd, ap, -a_dir) {
+                    pd = -pd;
+                    self.base.add_edge_perpendicular_distance(pd);
+                }
+                cache.a_perpendicular_distance = pd;
+            }
+            if bdd > 0.0 {
+                let mut pd = distance.distance;
+                if get_perpendicular_distance(&mut pd, bp, b_dir) {
+                    self.base.add_edge_perpendicular_distance(pd);
+                }
+                cache.b_perpendicular_distance = pd;
+            }
+            cache.a_domain_distance = add;
+            cache.b_domain_distance = bdd;
         }
+    }
+    fn reset(&mut self, d: Self::ResetType) {
+        let delta = DISTANCE_DELTA_FACTOR * (d - self.p).length();
+        self.base.reset(delta);
+        self.p = d;
+    }
+    fn distance(&mut self) -> Self::DistanceType {
+        self.base.compute_distance(self.p)
     }
     fn merge(&mut self, other: &Self) {
-        if other.min_distance < self.min_distance {
-            self.min_distance = other.min_distance;
-        }
-    }
-    fn distance(&mut self) -> Self::Distance {
-        self.min_distance.distance
-        //temporary placeholder
+        self.base.merge(&other.base);
     }
 }
-#[derive(Clone, Default)]
+
+#[derive(Default, Clone)]
 pub struct MultiDistanceSelector {
     p: Vec2,
-    r: PerpendicularDistanceSelector,
-    g: PerpendicularDistanceSelector,
-    b: PerpendicularDistanceSelector,
+    r: PerpDistSelectorBase,
+    g: PerpDistSelectorBase,
+    b: PerpDistSelectorBase,
 }
 impl DistanceSelector for MultiDistanceSelector {
-    type Distance = MultiDistance;
+    type DistanceType = MultiDistance;
     type EdgeCache = PerpendicularEdgeCache;
-    fn reset(&mut self, p: Vec2) {
-        let delta = DISTANCE_DELTA_FACTOR * (p - self.p).length();
-        self.r.reset(delta);
-        self.g.reset(delta);
-        self.b.reset(delta);
-        self.p = p;
-    }
+    type ResetType = Vec2;
     fn add_edge(
         &mut self,
         cache: &mut Self::EdgeCache,
@@ -199,8 +214,8 @@ impl DistanceSelector for MultiDistanceSelector {
             || (edge.color().contains(EdgeColor::BLUE)
                 && self.b.is_edge_relevant(&cache, edge, self.p))
         {
-            let param = 0.0;
-            let distance = edge.signed_distance(self.p, param);
+            let mut param = 0.0;
+            let distance = edge.signed_distance(self.p, &mut param);
             if contains_red {
                 self.r.add_edge_true_distance(edge, distance, param);
             }
@@ -256,29 +271,66 @@ impl DistanceSelector for MultiDistanceSelector {
             cache.b_domain_distance = bdd;
         }
     }
+    fn distance(&mut self) -> Self::DistanceType {
+        let mut multi_distance = MultiDistance::default();
+        multi_distance.r = self.r.compute_distance(self.p);
+        multi_distance.g = self.g.compute_distance(self.p);
+        multi_distance.b = self.b.compute_distance(self.p);
+        multi_distance
+    }
     fn merge(&mut self, other: &Self) {
         self.r.merge(&other.r);
         self.g.merge(&other.g);
         self.b.merge(&other.b);
     }
-    fn distance(&mut self) -> Self::Distance {
-        MultiDistance {
-            r: self.r.compute_distance(self.p),
-            g: self.g.compute_distance(self.p),
-            b: self.b.compute_distance(self.p),
-        }
+    fn reset(&mut self, d: Self::ResetType) {
+        let delta = DISTANCE_DELTA_FACTOR * (d - self.p).length();
+        self.r.reset(delta);
+        self.g.reset(delta);
+        self.b.reset(delta);
+        self.p = d;
     }
 }
-impl MultiDistanceSelector {
-    fn true_distance(&self) -> SignedDistance {
-        let mut distance = self.r.true_distance();
-        if self.g.true_distance() < distance {
-            distance = self.g.true_distance();
+
+#[derive(Default, Clone)]
+pub struct TrueDistanceSelector {
+    p: Vec2,
+    min_distance: SignedDistance,
+}
+impl DistanceSelector for TrueDistanceSelector {
+    type DistanceType = RegDistance;
+    type EdgeCache = TrueDistanceEdgeCache;
+    type ResetType = Vec2;
+    fn add_edge(
+        &mut self,
+        cache: &mut Self::EdgeCache,
+        prev_edge: BezierTypes,
+        edge: BezierTypes,
+        next_edge: BezierTypes,
+    ) {
+        let delta = DISTANCE_DELTA_FACTOR * (self.p - cache.point).length();
+        if cache.abs_distance - delta <= self.min_distance.distance.abs() {
+            let mut dummy = 0.0;
+            let distance = edge.signed_distance(self.p, &mut dummy);
+            if distance < self.min_distance {
+                self.min_distance = distance;
+            }
+            cache.point = self.p;
+            cache.abs_distance = distance.distance.abs();
         }
-        if self.b.true_distance() < distance {
-            distance = self.b.true_distance();
+    }
+    fn distance(&mut self) -> Self::DistanceType {
+        self.min_distance.distance
+    }
+    fn merge(&mut self, other: &Self) {
+        if other.min_distance < self.min_distance {
+            self.min_distance = other.min_distance;
         }
-        distance
+    }
+    fn reset(&mut self, d: Self::ResetType) {
+        let delta = (d - self.p).length() * DISTANCE_DELTA_FACTOR;
+        self.min_distance.distance += non_zero_sign(self.min_distance.distance) * delta;
+        self.p = d;
     }
 }
 pub fn get_perpendicular_distance(distance: &mut f64, ep: Vec2, edge_dir: Vec2) -> bool {

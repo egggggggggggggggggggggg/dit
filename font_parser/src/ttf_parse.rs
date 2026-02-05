@@ -5,8 +5,10 @@ use std::sync::Arc;
 use crate::cursor::Cursor;
 use crate::error::{Error, ReadError};
 pub use crate::table::*;
-use math::bezier::BezierTypes;
+use math::bezier::{BezierTypes, Bounds};
+use math::contour::Contour;
 use math::lalg::{BezierCurve, Transform, transform_curve};
+use math::shape::Shape;
 use std::fs::File;
 use std::io::Read;
 #[derive(Debug, Clone)]
@@ -68,19 +70,21 @@ impl TtfFont {
         }
         None
     }
-    pub fn assemble_glyf(&mut self, gid: GlyphId) -> Result<Vec<Vec<BezierTypes>>, Error> {
+    pub fn assemble_glyf(&mut self, gid: GlyphId) -> Result<Shape, Error> {
         let glyph = self.parse_gid(gid).unwrap().unwrap();
+        let header = glyph.get_header();
         let mut stack = vec![(glyph, Transform::identity())];
         let mut contours = Vec::new();
         while let Some((branch, transform)) = stack.pop() {
             match branch.as_ref() {
                 Glyph::Simple(simple) => {
                     for contour in &simple.contours {
-                        let mut new_contour = Vec::with_capacity(contours.len());
+                        let mut edges = Vec::with_capacity(contours.len());
                         for curve in contour {
-                            new_contour.push(transform_curve(curve, transform))
+                            edges.push(transform_curve(curve, transform))
                         }
-                        contours.push(new_contour);
+                        let contour = Contour { edges };
+                        contours.push(contour);
                     }
                 }
                 Glyph::Composite(composite) => {
@@ -93,7 +97,15 @@ impl TtfFont {
                 }
             }
         }
-        Ok(contours)
+        Ok(Shape {
+            contours,
+            bounds: Bounds::new(
+                header.x_min as f64,
+                header.x_max as f64,
+                header.y_min as f64,
+                header.y_max as f64,
+            ),
+        })
     }
     pub fn get_glyf_header(&self, gid: u16) -> Option<&GlyphHeader> {
         if let Some(glyf) = self.glyf.get_glyf(gid) {

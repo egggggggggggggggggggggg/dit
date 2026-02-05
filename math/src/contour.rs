@@ -47,9 +47,9 @@ impl Contour {
             prev_dir = edge.direction(1.0).normalize_allow_zero(true);
         }
     }
-    pub fn winding(&self) -> f64 {
+    pub fn winding(&self) -> i64 {
         if self.edges.is_empty() {
-            return 0.0;
+            return 0;
         }
         let mut total = 0.0;
         if self.edges.len() == 1 {
@@ -76,7 +76,7 @@ impl Contour {
                 prev = cur;
             }
         }
-        sign(total) as f64
+        sign(total) as i64
     }
     pub fn reverse(&mut self) {
         self.edges.reverse();

@@ -132,7 +132,7 @@ impl Bezier for BezierTypes {
         }
     }
     ///Returns the signed distance from a point on the curve to another point p
-    fn signed_distance(&self, origin: Vec2, param: f64) -> SignedDistance {
+    fn signed_distance(&self, origin: Vec2, param: &mut f64) -> SignedDistance {
         match self {
             BezierTypes::Linear(b) => b.signed_distance(origin, param),
             BezierTypes::Quadratic(b) => b.signed_distance(origin, param),
@@ -202,7 +202,7 @@ pub trait Bezier: Clone + Copy {
     fn point(&self, param: f64) -> Vec2;
     fn direction(&self, param: f64) -> Vec2;
     fn direction_change(&self, param: f64) -> Vec2;
-    fn signed_distance(&self, origin: Vec2, param: f64) -> SignedDistance;
+    fn signed_distance(&self, origin: Vec2, param: &mut f64) -> SignedDistance;
     // fn scanline_intersections(&self, x: [f64; 3], dy: [i32; 3], y: f64) -> i32;
     fn distance_to_perpendicular_distance(
         &self,
@@ -314,13 +314,13 @@ impl Bezier for LinearBezier {
         self.p[0] = self.p[1];
         self.p[1] = tmp;
     }
-    fn signed_distance(&self, origin: Vec2, param: f64) -> SignedDistance {
+    fn signed_distance(&self, origin: Vec2, param: &mut f64) -> SignedDistance {
         let aq = origin - self.p[0];
         let ab = self.p[1] - self.p[0];
-        let param = aq.dot(ab) / ab.dot(ab);
-        let eq = self.p[(param > 0.5) as usize] - origin;
+        *param = aq.dot(ab) / ab.dot(ab);
+        let eq = self.p[(*param > 0.5) as usize] - origin;
         let endpoint_dist = eq.length();
-        if param > 0.0 && param < 1.0 {
+        if *param > 0.0 && *param < 1.0 {
             let ortho_dist = ab.orthonormal(false, false).dot(aq);
             if ortho_dist.abs() < endpoint_dist {
                 return SignedDistance {
@@ -373,7 +373,7 @@ impl Bezier for QuadraticBezier {
         }
         tangent
     }
-    fn signed_distance(&self, origin: Vec2, param: f64) -> SignedDistance {
+    fn signed_distance(&self, origin: Vec2, param: &mut f64) -> SignedDistance {
         let qa = self.p[0] - origin;
         let ab = self.p[1] - self.p[0];
         let br = self.p[2] - self.p[1] - ab;
@@ -384,13 +384,13 @@ impl Bezier for QuadraticBezier {
         let (solutions, is_infinite) = solve_cubic(a, b, c, d);
         let mut endpoint_dir = self.direction(0.0);
         let mut min_distance = non_zero_sign(endpoint_dir.cross(qa)) * qa.length();
-        let mut param = -qa.dot(endpoint_dir) / endpoint_dir.dot(endpoint_dir);
+        *param = -qa.dot(endpoint_dir) / endpoint_dir.dot(endpoint_dir);
         {
             let distance = (self.p[2] - origin).length();
             if distance < min_distance.abs() {
                 endpoint_dir = self.direction(1.0);
                 min_distance = non_zero_sign(endpoint_dir.cross(self.p[2] - origin)) * distance;
-                param = (origin - self.p[1]).dot(endpoint_dir) / endpoint_dir.dot(endpoint_dir);
+                *param = (origin - self.p[1]).dot(endpoint_dir) / endpoint_dir.dot(endpoint_dir);
             }
         }
         for i in 0..solutions.len() {
@@ -400,17 +400,17 @@ impl Bezier for QuadraticBezier {
                 let distance = qe.length();
                 if distance <= min_distance.abs() {
                     min_distance = non_zero_sign((ab + br * solutions[i]).dot(qe)) * distance;
-                    param = solutions[i];
+                    *param = solutions[i];
                 }
             }
         }
-        if param >= 0.0 && param <= 1.0 {
+        if *param >= 0.0 && *param <= 1.0 {
             return SignedDistance {
                 distance: min_distance,
                 dot: 0.0,
             };
         }
-        if param < 0.5 {
+        if *param < 0.5 {
             SignedDistance {
                 distance: min_distance,
                 dot: self.direction(0.0).normalize().dot(qa.normalize()).abs(),
@@ -532,20 +532,20 @@ impl Bezier for CubicBezier {
         }
         return tangent;
     }
-    fn signed_distance(&self, origin: Vec2, param: f64) -> SignedDistance {
+    fn signed_distance(&self, origin: Vec2, param: &mut f64) -> SignedDistance {
         let qa = self.p[0] - origin;
         let ab = self.p[1] - self.p[0];
         let br = self.p[2] - self.p[1] - ab;
         let ac = (self.p[3] - self.p[2]) - (self.p[2] - self.p[1]) - br;
         let mut endpoint_dir = self.direction(0.0);
         let mut min_distance = non_zero_sign(endpoint_dir.cross(qa)) * qa.length();
-        let mut param = -qa.dot(endpoint_dir) / endpoint_dir.dot(endpoint_dir);
+        *param = -qa.dot(endpoint_dir) / endpoint_dir.dot(endpoint_dir);
         {
             let distance = (self.p[3] - origin).length();
             if distance < min_distance.abs() {
                 endpoint_dir = self.direction(1.0);
                 min_distance = non_zero_sign(endpoint_dir.cross(self.p[3] - origin)) * distance;
-                param = endpoint_dir.dot(endpoint_dir - (self.p[3] - origin))
+                *param = endpoint_dir.dot(endpoint_dir - (self.p[3] - origin))
                     / endpoint_dir.dot(endpoint_dir)
             }
         }
@@ -578,17 +578,17 @@ impl Bezier for CubicBezier {
                 let distance = qe.length();
                 if distance < min_distance.abs() {
                     min_distance = non_zero_sign(d1.cross(qe)) * distance;
-                    param = t;
+                    *param = t;
                 }
             }
         }
-        if param >= 0.0 && param <= 1.0 {
+        if *param >= 0.0 && *param <= 1.0 {
             return SignedDistance {
                 distance: min_distance,
                 dot: 0.0,
             };
         }
-        if param < 0.5 {
+        if *param < 0.5 {
             SignedDistance {
                 distance: min_distance,
                 dot: self.direction(0.0).normalize().dot(qa.normalize()).abs(),

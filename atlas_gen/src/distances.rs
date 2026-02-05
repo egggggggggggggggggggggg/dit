@@ -1,16 +1,7 @@
-use std::{
-    fmt::LowerExp,
-    ops::{Div, DivAssign, Mul, MulAssign},
-};
+use std::ops::{Div, DivAssign, Mul, MulAssign};
 
 use math::calc::median;
 
-trait DistancePixelConversion {
-    type Distance;
-    const CHANNELS: usize;
-
-    fn write_pixel(&self, pixels: &mut [f32], distance: Self::Distance);
-}
 //workaround for types being unable to defined in an impl block
 //could possible write a macro that allows you to access all the fields of a struct or smth
 pub trait DistanceType: Default {
@@ -27,7 +18,7 @@ impl DistanceType for RegDistance {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct MultiDistance {
     pub r: f64,
     pub g: f64,
@@ -50,7 +41,7 @@ impl DistanceType for MultiDistance {
         Self::new()
     }
 }
-#[derive(Clone, Default)]
+#[derive(Clone, Default, Debug)]
 pub struct MultiAndTrueDistance {
     pub base: MultiDistance,
     pub a: f64,
@@ -161,4 +152,9 @@ impl Mul<Range> for f64 {
             upper: self * rhs.upper,
         }
     }
+}
+trait DistancePixelConversion {
+    type Distance;
+    const CHANNELS: usize;
+    fn write_pixel(&self, pixels: &mut [f32], distance: Self::Distance);
 }
