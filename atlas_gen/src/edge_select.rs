@@ -1,3 +1,5 @@
+use core::f64;
+
 use crate::{
     distances::{DistanceType, MultiDistance, RegDistance},
     edge_cache::{PerpendicularEdgeCache, TrueDistanceEdgeCache},
@@ -9,7 +11,7 @@ use math::{
 };
 const DISTANCE_DELTA_FACTOR: f64 = 1.001;
 
-pub trait DistanceSelector {
+pub trait DistanceSelector: Default {
     type ResetType;
     type DistanceType: DistanceType;
     type EdgeCache;
@@ -23,6 +25,7 @@ pub trait DistanceSelector {
     );
     fn merge(&mut self, other: &Self);
     fn distance(&mut self) -> Self::DistanceType;
+    fn new() -> Self;
 }
 
 #[derive(Default, Clone)]
@@ -35,6 +38,16 @@ pub struct PerpDistSelectorBase {
     near_edge_param: f64,
 }
 impl PerpDistSelectorBase {
+    pub fn new() -> Self {
+        Self {
+            min_true_distance: SignedDistance::default(),
+            min_neg_perp_distance: -f64::MAX,
+            min_pos_perp_distance: f64::MAX,
+            edge_cache: PerpendicularEdgeCache::default(),
+            near_edge: None,
+            near_edge_param: 0.0,
+        }
+    }
     pub fn reset(&mut self, delta: f64) {
         self.min_true_distance.distance += non_zero_sign(self.min_true_distance.distance) * delta;
         self.min_neg_perp_distance = -self.min_true_distance.distance.abs();
@@ -134,6 +147,12 @@ impl DistanceSelector for PerpendicularDistanceSelector {
     type DistanceType = RegDistance;
     type EdgeCache = PerpendicularEdgeCache;
     type ResetType = Vec2;
+    fn new() -> Self {
+        Self {
+            base: PerpDistSelectorBase::new(),
+            p: Vec2::default(),
+        }
+    }
     fn add_edge(
         &mut self,
         cache: &mut Self::EdgeCache,
@@ -198,6 +217,9 @@ impl DistanceSelector for MultiDistanceSelector {
     type DistanceType = MultiDistance;
     type EdgeCache = PerpendicularEdgeCache;
     type ResetType = Vec2;
+    fn new() -> Self {
+        Self::default()
+    }
     fn add_edge(
         &mut self,
         cache: &mut Self::EdgeCache,
@@ -301,6 +323,9 @@ impl DistanceSelector for TrueDistanceSelector {
     type DistanceType = RegDistance;
     type EdgeCache = TrueDistanceEdgeCache;
     type ResetType = Vec2;
+    fn new() -> Self {
+        Self::default()
+    }
     fn add_edge(
         &mut self,
         cache: &mut Self::EdgeCache,
