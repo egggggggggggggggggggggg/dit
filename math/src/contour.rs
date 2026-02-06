@@ -3,7 +3,7 @@ use crate::{
     bezier::{Bezier, BezierTypes, Bounds},
 };
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Contour {
     pub edges: Vec<BezierTypes>,
 }

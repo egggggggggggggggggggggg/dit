@@ -70,7 +70,9 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
             switch_color(&mut color, seed);
             colors[0] = color;
             colors[1] = EdgeColor::WHITE;
+            println!("color before: {:?}", color);
             switch_color(&mut color, seed);
+            println!("color after: {:?}", color);
             colors[2] = color;
             let corner = corners[0];
             let m = contour.edges.len();
@@ -112,7 +114,9 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
             let mut spline = 0;
             let start = corners[0];
             let m = contour.edges.len();
+            println!("color prior: {:?}", color);
             switch_color(&mut color, seed);
+            println!("color after: {:?}", color);
             let initial_color = color;
             for i in 0..m {
                 let index = (start + i) % m;
@@ -126,6 +130,8 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
                     };
                     switch_color_banned(&mut color, seed, banned);
                 }
+                contour.edges[index].set_color(color);
+                println!("Color in loop: {:?}", color);
             }
         }
     }

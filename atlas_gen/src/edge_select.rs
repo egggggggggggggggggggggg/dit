@@ -1,4 +1,5 @@
 use core::f64;
+use std::fmt::Debug;
 
 use crate::{
     distances::{DistanceType, MultiDistance, RegDistance},
@@ -13,7 +14,7 @@ const DISTANCE_DELTA_FACTOR: f64 = 1.001;
 
 pub trait DistanceSelector: Default {
     type ResetType: Copy + Default;
-    type DistanceType: DistanceType;
+    type DistanceType: DistanceType + Debug;
     type EdgeCache: Default;
     fn reset(&mut self, d: Self::ResetType);
     fn add_edge(
@@ -276,7 +277,7 @@ impl DistanceSelector for MultiDistanceSelector {
             }
             if bdd > 0.0 {
                 let mut pd = distance.distance;
-                if get_perpendicular_distance(&mut pd, ap, b_dir) {
+                if get_perpendicular_distance(&mut pd, bp, b_dir) {
                     if contains_red {
                         self.r.add_edge_perpendicular_distance(pd);
                     }
@@ -287,7 +288,7 @@ impl DistanceSelector for MultiDistanceSelector {
                         self.b.add_edge_perpendicular_distance(pd);
                     }
                 }
-                cache.a_perpendicular_distance = pd;
+                cache.b_perpendicular_distance = pd;
             }
             cache.a_domain_distance = add;
             cache.b_domain_distance = bdd;

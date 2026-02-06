@@ -1,4 +1,7 @@
-use math::{lalg::Vec2, shape::Shape};
+use math::{
+    lalg::Vec2,
+    shape::{self, Shape},
+};
 
 use crate::{distances::DistanceType, edge_select::DistanceSelector};
 
@@ -19,6 +22,7 @@ impl<T: DistanceSelector> ContourCombiner for SimpleContourCombiner<T> {
     fn distance(&mut self) -> <Self::Selector as DistanceSelector>::DistanceType {
         let edge_selector = self.edge_selector(0);
         let distance: <T as DistanceSelector>::DistanceType = edge_selector.distance();
+        println!("distance in scc: {:?}", distance);
         distance
     }
     fn edge_selector(&mut self, i: usize) -> &mut Self::Selector {
@@ -61,6 +65,10 @@ impl<T: DistanceSelector> ContourCombiner for OverlappingContourCombiner<T> {
         let shape_distance = shape_edge_selector.distance();
         let inner_distance = inner_edge_selector.distance();
         let outer_distance = outer_edge_selector.distance();
+        println!(
+            "s: {:?}, i: {:?}, o: {:?}",
+            shape_distance, inner_distance, outer_distance
+        );
         let inner_scalar_distance = inner_distance.resolve();
         let outer_scalar_distance = outer_distance.resolve();
         //temporary solution as the type  isnt concretely defined
@@ -119,11 +127,13 @@ impl<T: DistanceSelector> ContourCombiner for OverlappingContourCombiner<T> {
     }
     fn new(shape: &Shape) -> Self {
         let mut windings = Vec::with_capacity(shape.contours.len());
+        let mut edge_selectors = Vec::with_capacity(shape.contours.len());
         for contour in &shape.contours {
             windings.push(contour.winding());
+            edge_selectors.push(T::default());
         }
         Self {
-            edge_selectors: Vec::with_capacity(shape.contours.len()),
+            edge_selectors,
             windings,
             p: T::ResetType::default(),
         }

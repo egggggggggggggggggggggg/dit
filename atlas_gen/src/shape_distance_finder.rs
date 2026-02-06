@@ -10,7 +10,7 @@ pub struct ShapeDistanceFinder<C: ContourCombiner> {
 impl<C: ContourCombiner> ShapeDistanceFinder<C> {
     pub fn new(shape: Shape) -> Self {
         let cc = C::new(&shape);
-        let ec = &shape.contours.len();
+        let ec = &shape.edge_count();
         let mut edge_caches = Vec::with_capacity(*ec);
         for _ in 0..*ec {
             edge_caches.push(<C::Selector as DistanceSelector>::EdgeCache::default());

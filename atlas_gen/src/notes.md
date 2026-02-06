@@ -159,3 +159,14 @@ To use the MSDF texture atlas
 define the bilinear sampling method(built in on most gpus)
 colordist function defined earlier
 
+
+Sources of error
+- Shape failing to be properly utilized
+- Never gets passed around indicating it probably is just using random values to return distance
+- Signange is entirely only negative
+- Indicates a sign was randomly placed that doesn't belong there
+- The distance are upwards of -200 indicating it believes the point is very outside
+- The winding might be wrong for this issue specifically and since it only rises by a very small amount of 1s it indicates 
+- that the shape is most likely very far away from the actual image grid
+- Most likely a normalization issue
+- Visualization: The image output itself is in quadrant 2 but the actual shape is in quadrant 4.

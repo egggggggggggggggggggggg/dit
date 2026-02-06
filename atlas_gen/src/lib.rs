@@ -7,6 +7,7 @@ pub mod edge_cache;
 pub mod edge_coloring;
 pub mod edge_select;
 // pub mod edge_selectors;
+pub mod padding;
 pub mod shape_distance_finder;
 use atlas::*;
 use core::{f32, panic};
@@ -20,6 +21,23 @@ use std::{f32::EPSILON, vec};
 
 use crate::allocator::ShelfAllocator;
 use shape_distance_finder::*;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn test_vectors() {
+        let vec = Vec2 { x: 1.0, y: 1.0 };
+        assert_eq!(vec.length(), 2.0f64.sqrt());
+    }
+    #[test]
+    fn test_shape_distnace() {
+        let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
+        let gid = font.lookup('~' as u32).unwrap();
+        let shape = font.assemble_glyf(gid as u16).unwrap();
+        println!("{:?}", shape);
+    }
+}
 
 // pub fn entry() -> Atlas<char, Rgb<u8>, ShelfAllocator> {
 //     let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();

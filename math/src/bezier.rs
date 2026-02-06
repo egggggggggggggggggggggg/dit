@@ -63,7 +63,7 @@ impl From<u8> for EdgeColor {
         }
     }
 }
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 ///AABB - Think it does work for stuff besides bezier curves
 ///
 pub struct Bounds {
@@ -518,8 +518,8 @@ impl Bezier for QuadraticBezier {
 impl Bezier for CubicBezier {
     fn direction(&self, param: f64) -> Vec2 {
         let tangent = mix(
-            mix(self.p[1], self.p[0], param),
-            mix(self.p[2], self.p[1], param),
+            mix(self.p[1] - self.p[0], self.p[2] - self.p[1], param),
+            mix(self.p[2] - self.p[1], self.p[3] - self.p[2], param),
             param,
         );
         if tangent.is_zero() {
@@ -539,7 +539,8 @@ impl Bezier for CubicBezier {
         let ac = (self.p[3] - self.p[2]) - (self.p[2] - self.p[1]) - br;
         let mut endpoint_dir = self.direction(0.0);
         let mut min_distance = non_zero_sign(endpoint_dir.cross(qa)) * qa.length();
-        *param = -qa.dot(endpoint_dir) / endpoint_dir.dot(endpoint_dir);
+        *param = (endpoint_dir - (self.p[3] - origin)).dot(endpoint_dir)
+            / endpoint_dir.dot(endpoint_dir);
         {
             let distance = (self.p[3] - origin).length();
             if distance < min_distance.abs() {
@@ -549,8 +550,8 @@ impl Bezier for CubicBezier {
                     / endpoint_dir.dot(endpoint_dir)
             }
         }
-        for i in 0..MSDFGEN_CUBIC_SEARCH_STARTS {
-            let mut t = 1.0 / (MSDFGEN_CUBIC_SEARCH_STARTS * i) as f64;
+        for i in 0..=MSDFGEN_CUBIC_SEARCH_STARTS {
+            let mut t = i as f64 / MSDFGEN_CUBIC_SEARCH_STARTS as f64;
             let t2 = t * t;
             let t3 = t2 * t;
             let mut qe = qa + ab * (3.0 * t) + br * (3.0 * t2) + ac * t3;
