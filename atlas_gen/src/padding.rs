@@ -9,12 +9,6 @@ pub struct Padding {
     t: f64,
 }
 //rewrtiw
-pub fn pad(bounds: &mut Bounds, padding: Padding) {
-    bounds.l -= padding.l;
-    bounds.b -= padding.b;
-    bounds.r += padding.r;
-    bounds.t += padding.t;
-}
 impl Add for Padding {
     fn add(self, rhs: Self) -> Self::Output {
         Self {

@@ -141,7 +141,7 @@ impl Neg for Vec2 {
 impl Eq for Vec2 {}
 impl PartialEq for Vec2 {
     fn eq(&self, other: &Self) -> bool {
-        self.x != other.x || self.y != other.y
+        self.x == other.x && self.y == other.y
     }
 }
 #[derive(Debug, Clone, Copy)]
