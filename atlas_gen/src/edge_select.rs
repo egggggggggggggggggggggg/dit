@@ -178,8 +178,7 @@ impl DistanceSelector for PerpendicularDistanceSelector {
             if add > 0.0 {
                 let mut pd = distance.distance;
                 if get_perpendicular_distance(&mut pd, ap, -a_dir) {
-                    pd = -pd;
-                    self.base.add_edge_perpendicular_distance(pd);
+                    self.base.add_edge_perpendicular_distance(-pd);
                 }
                 cache.a_perpendicular_distance = pd;
             }
@@ -207,6 +206,9 @@ impl DistanceSelector for PerpendicularDistanceSelector {
     }
 }
 
+//seems somewhat correct. might be the improper color selection causing this issue
+//arises on curves indicating padding might be needed?
+//regular straight lines are fine
 #[derive(Default, Clone)]
 pub struct MultiDistanceSelector {
     p: Vec2,

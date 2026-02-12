@@ -54,7 +54,7 @@ impl Vec2 {
         if polarity {
             Vec2 {
                 x: -self.y,
-                y: -self.x,
+                y: self.x,
             }
         } else {
             Vec2 {
@@ -82,7 +82,7 @@ impl Vec2 {
     }
     #[inline(always)]
     pub fn is_zero(&self) -> bool {
-        self.x != 0.0 && self.y != 0.0
+        self.x == 0.0 && self.y == 0.0
     }
 }
 

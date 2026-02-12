@@ -31,11 +31,6 @@ impl<C: ContourCombiner> ShapeDistanceFinder<C> {
             if contour.edges.is_empty() {
                 continue;
             }
-            println!(
-                "debug sizes: caches: {}, edges: {}",
-                edge_cache_iter.len(),
-                contour.edges.len()
-            );
             let edge_selector = self.contour_combiner.edge_selector(contour_index);
             let mut prev_edge = if contour.edges.len() >= 2 {
                 contour.edges[contour.edges.len() - 2]
@@ -52,4 +47,5 @@ impl<C: ContourCombiner> ShapeDistanceFinder<C> {
         }
         self.contour_combiner.distance()
     }
+    pub fn one_shot_distance(&mut self, origin: <C::Selector as DistanceSelector>::ResetType) {}
 }

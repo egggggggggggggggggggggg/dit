@@ -61,18 +61,18 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
             prev_direction = edge.direction(1.0);
         }
         if corners.is_empty() {
+            println!("No corners");
             switch_color(&mut color, seed);
             for edge in &mut contour.edges {
                 edge.set_color(color);
             }
         } else if corners.len() == 1 {
+            println!("Teardrop case");
             let mut colors = [EdgeColor::WHITE; 3];
             switch_color(&mut color, seed);
             colors[0] = color;
             colors[1] = EdgeColor::WHITE;
-            println!("color before: {:?}", color);
             switch_color(&mut color, seed);
-            println!("color after: {:?}", color);
             colors[2] = color;
             let corner = corners[0];
             let m = contour.edges.len();
@@ -110,6 +110,7 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
                 }
             }
         } else {
+            println!("Regular case");
             let corner_count = corners.len();
             let mut spline = 0;
             let start = corners[0];
@@ -122,7 +123,6 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
                 let index = (start + i) % m;
                 if spline + 1 < corner_count && corners[spline + 1] == index {
                     spline += 1;
-                    //This is probably wrong
                     let banned = if spline == corner_count - 1 {
                         initial_color
                     } else {
@@ -139,6 +139,7 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
 fn is_corner(a: Vec2, b: Vec2, cross_threshold: f64) -> bool {
     a.dot(b) <= 0.0 || a.cross(b).abs() > cross_threshold
 }
+
 fn symmetrical_trichotomy(position: i32, n: i32) -> i32 {
     ((3.0 + 2.875 * position as f64 / (n - 1) as f64 - 1.4375 + 0.5) as i32) - 3
 }

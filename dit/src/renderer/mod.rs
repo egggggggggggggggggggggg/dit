@@ -254,7 +254,7 @@ impl App {
         let cell_ascent = font.hhea.ascent;
         let cell_descent = font.hhea.descent;
         let cell_height = cell_ascent - cell_descent + font.hhea.line_gap;
-        let font_size_px = 80;
+        let font_size_px = 128;
         let scale = font_size_px as f32 / units_per_em as f32;
         let cell_width_px = cell_advance as f32 * scale;
         let cell_height_px = cell_height as f32 * scale;

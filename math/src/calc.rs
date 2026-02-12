@@ -167,7 +167,7 @@ pub fn solve_cubic_normed(a: f64, b: f64, c: f64) -> Vec<f64> {
     let mut solutions = Vec::new();
     let a2 = a * a;
     let mut q = (a2 - 3.0 * b) / 9.0;
-    let r = (a * (2.0 * a2 * b) + 27.0 * c) / 54.0;
+    let r = (2.0 * a * a2 - 9.0 * a * b + 27.0 * c) / 54.0;
     let r2 = r * r;
     let q3 = q * q * q;
     a *= 1.0 / 3.0;
