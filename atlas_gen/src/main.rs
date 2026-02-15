@@ -1,7 +1,7 @@
 use atlas_gen::{
     allocator::ShelfAllocator,
     atlas::Atlas,
-    cont_comb::{ContourCombiner, SimpleContourCombiner},
+    cont_comb::{ContourCombiner, OverlappingContourCombiner, SimpleContourCombiner},
     distances::MultiDistance,
     edge_coloring::edge_coloring_simple,
     edge_select::MultiDistanceSelector,
@@ -23,7 +23,7 @@ fn entry() {
         Atlas::new(1024, 1024, atlas_allocator, 4, false);
 
     let target_font_px = 64;
-    let dmax_px = 1.0;
+    let dmax_px = 4.0;
     for ch in '!'..'~' {
         let mut seed = 0;
         let gid = font.lookup(ch as u32).unwrap();
@@ -54,6 +54,7 @@ fn entry() {
             ImageBuffer::new(pixel_width, pixel_height);
 
         for py in 0..pixel_height {
+            let mut previous_distance = MultiDistance::default();
             for px in 0..pixel_width {
                 let gx = bounds.x_min as f64 + (px as f64 + 0.5) / scale;
                 let gy = bounds.y_min as f64 + (py as f64 + 0.5) / scale;
@@ -78,14 +79,20 @@ fn entry() {
                 let b_0_255 = ((clamped_b / distance_range + 0.5) * max_color)
                     .clamp(0.0, 255.0)
                     .round() as u8;
+                //pixel mistmatch issue
 
+                println!(
+                    "{:?}, after conversion: {}, {}, {}",
+                    distance, r_0_255, g_0_255, b_0_255,
+                );
+                println!("previous distance: {:?}", previous_distance);
+                previous_distance = distance;
                 let pixel = Rgb([r_0_255, g_0_255, b_0_255]);
-
                 output_image.put_pixel(px, pixel_height - 1 - py, pixel);
             }
         }
-
         texture_atlas.add_image(ch, &output_image).unwrap();
+        output_image.save(format!("./res/{}.png", ch)).unwrap();
     }
 
     texture_atlas
@@ -93,6 +100,7 @@ fn entry() {
         .save("./res/texture_atlas_mono.png")
         .unwrap();
 }
+
 //gotta add some info to the thing for it to properly use it
 pub struct GlyphGeometry {
     index: i64,

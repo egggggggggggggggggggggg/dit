@@ -138,6 +138,15 @@ impl Neg for Vec2 {
     }
     type Output = Self;
 }
+impl Mul<Vec2> for f64 {
+    fn mul(self, rhs: Vec2) -> Self::Output {
+        Vec2 {
+            x: self * rhs.x,
+            y: self * rhs.y,
+        }
+    }
+    type Output = Vec2;
+}
 impl Eq for Vec2 {}
 impl PartialEq for Vec2 {
     fn eq(&self, other: &Self) -> bool {

@@ -104,6 +104,15 @@ pub enum BezierTypes {
     Quadratic(QuadraticBezier),
     Cubic(CubicBezier),
 }
+impl BezierTypes {
+    pub fn degree(&self) -> i64 {
+        match self {
+            BezierTypes::Linear(_) => 1,
+            BezierTypes::Quadratic(_) => 2,
+            BezierTypes::Cubic(_) => 3,
+        }
+    }
+}
 impl Bezier for BezierTypes {
     ///Gets the point at that specified param value
     ///Bezier curves can be though of as stacking lerps hence the param or t value
@@ -135,7 +144,10 @@ impl Bezier for BezierTypes {
     fn signed_distance(&self, origin: Vec2, param: &mut f64) -> SignedDistance {
         match self {
             BezierTypes::Linear(b) => b.signed_distance(origin, param),
-            BezierTypes::Quadratic(b) => b.signed_distance(origin, param),
+            BezierTypes::Quadratic(b) => {
+                println!("quadratic case: {:?}", b);
+                b.signed_distance(origin, param)
+            }
             BezierTypes::Cubic(b) => b.signed_distance(origin, param),
         }
     }
@@ -278,13 +290,27 @@ impl QuadraticBezier {
         let abab = ab.dot(ab);
         let abbr = ab.dot(br);
         let brbr = br.dot(br);
+
         let ab_len = abab.sqrt();
         let br_len = brbr.sqrt();
+
         let crs = ab.cross(br);
+
         let h = (abab + abbr + abbr + brbr).sqrt();
         (br_len * ((abbr + brbr) * h - abbr * ab_len)
             + crs * crs * ((br_len * h + abbr + brbr) / (br_len * ab_len + abbr)).ln())
             / (brbr * br_len)
+    }
+    pub fn to_cubic(&self) -> CubicBezier {
+        CubicBezier {
+            p: [
+                self.p[0],
+                mix(self.p[0], self.p[1], 2.0 / 3.0),
+                mix(self.p[1], self.p[2], 1.0 / 3.0),
+                self.p[2],
+            ],
+            color: self.color,
+        }
     }
 }
 impl CubicBezier {

@@ -25,7 +25,9 @@ pub trait DistanceSelector: Default {
         next_edge: BezierTypes,
     );
     fn merge(&mut self, other: &Self);
+    //Gets the distance for a 
     fn distance(&mut self) -> Self::DistanceType;
+    ///Initializes the distance selector
     fn new() -> Self;
 }
 
@@ -119,6 +121,7 @@ impl PerpDistSelectorBase {
             self.min_pos_perp_distance = other.min_pos_perp_distance;
         }
     }
+    ///Returns the distance from a point to the 
     pub fn compute_distance(&mut self, p: Vec2) -> f64 {
         let mut min_dist = if self.min_true_distance.distance < 0.0 {
             self.min_neg_perp_distance
