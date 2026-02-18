@@ -24,10 +24,11 @@ fn init_color(seed: &mut u64) -> EdgeColor {
 
 fn switch_color(color: &mut EdgeColor, seed: &mut u64) {
     let shift = 1 + seed_extract2(seed);
-    let shifted = EdgeColor::from_bits_truncate(color.bits() << shift);
-    *color = EdgeColor::from_bits_truncate(
-        (shifted.bits() | (shifted.bits() >> 3)) & EdgeColor::WHITE.bits(),
-    );
+    let shifted = color.bits() << shift; // keep as integer
+
+    let result = (shifted | (shifted >> 3)) & EdgeColor::WHITE.bits();
+
+    *color = EdgeColor::from_bits_truncate(result);
 }
 
 fn switch_color_banned(color: &mut EdgeColor, seed: &mut u64, banned: EdgeColor) {
@@ -41,8 +42,10 @@ fn switch_color_banned(color: &mut EdgeColor, seed: &mut u64, banned: EdgeColor)
 }
 
 pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut u64) {
+    // println!("prior to coloring : {:?}", shape);
     let cross_threshold = angle_threshold.sin();
     let mut color = init_color(seed);
+    println!("init color: {}", color);
     let mut corners = Vec::new();
     for contour in &mut shape.contours {
         if contour.edges.is_empty() {
@@ -62,10 +65,12 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
         }
         if corners.is_empty() {
             println!("No corners");
+            println!("previous color: {}", color);
             switch_color(&mut color, seed);
             for edge in &mut contour.edges {
                 edge.set_color(color);
             }
+            println!("after color: {}", color);
         } else if corners.len() == 1 {
             println!("Teardrop case");
             let mut colors = [EdgeColor::WHITE; 3];
@@ -135,6 +140,8 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
             }
         }
     }
+
+    // println!("after coloring : {:?}", shape);
 }
 fn is_corner(a: Vec2, b: Vec2, cross_threshold: f64) -> bool {
     a.dot(b) <= 0.0 || a.cross(b).abs() > cross_threshold

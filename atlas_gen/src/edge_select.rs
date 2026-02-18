@@ -25,7 +25,7 @@ pub trait DistanceSelector: Default {
         next_edge: BezierTypes,
     );
     fn merge(&mut self, other: &Self);
-    //Gets the distance for a 
+    //Gets the distance for a
     fn distance(&mut self) -> Self::DistanceType;
     ///Initializes the distance selector
     fn new() -> Self;
@@ -121,7 +121,7 @@ impl PerpDistSelectorBase {
             self.min_pos_perp_distance = other.min_pos_perp_distance;
         }
     }
-    ///Returns the distance from a point to the 
+    ///Returns the distance from a point to the
     pub fn compute_distance(&mut self, p: Vec2) -> f64 {
         let mut min_dist = if self.min_true_distance.distance < 0.0 {
             self.min_neg_perp_distance
@@ -165,6 +165,7 @@ impl DistanceSelector for PerpendicularDistanceSelector {
         next_edge: BezierTypes,
     ) {
         if self.base.is_edge_relevant(&cache, edge, self.p) {
+            println!("Edge was relevant");
             let mut param = 0.0;
             let distance = edge.signed_distance(self.p, &mut param);
             self.base.add_edge_true_distance(edge, distance, param);
@@ -177,7 +178,7 @@ impl DistanceSelector for PerpendicularDistanceSelector {
             let prev_dir = prev_edge.direction(1.0).normalize_allow_zero(true);
             let next_dir = next_edge.direction(0.0).normalize_allow_zero(true);
             let add = ap.dot((prev_dir + a_dir).normalize_allow_zero(true));
-            let bdd = -bp.dot((b_dir + next_dir).normalize_allow_zero(true));
+            let bdd = -1.0 * (bp.dot((b_dir + next_dir).normalize_allow_zero(true)));
             if add > 0.0 {
                 let mut pd = distance.distance;
                 if get_perpendicular_distance(&mut pd, ap, -a_dir) {
@@ -236,12 +237,17 @@ impl DistanceSelector for MultiDistanceSelector {
         let contains_red = edge.color().contains(EdgeColor::RED);
         let contains_green = edge.color().contains(EdgeColor::GREEN);
         let contains_blue = edge.color().contains(EdgeColor::BLUE);
+        println!(
+            "red: {}, green: {}, blue: {}",
+            contains_red, contains_green, contains_blue
+        );
         if (edge.color().contains(EdgeColor::RED) && self.r.is_edge_relevant(&cache, edge, self.p))
             || (edge.color().contains(EdgeColor::GREEN)
                 && self.g.is_edge_relevant(&cache, edge, self.p))
             || (edge.color().contains(EdgeColor::BLUE)
                 && self.b.is_edge_relevant(&cache, edge, self.p))
         {
+            println!("Adding edge");
             let mut param = 0.0;
             let distance = edge.signed_distance(self.p, &mut param);
             if contains_red {
@@ -263,7 +269,7 @@ impl DistanceSelector for MultiDistanceSelector {
             let prev_dir = prev_edge.direction(1.0).normalize_allow_zero(true);
             let next_dir = next_edge.direction(0.0).normalize_allow_zero(true);
             let add = ap.dot((prev_dir + a_dir).normalize_allow_zero(true));
-            let bdd = -bp.dot((b_dir + next_dir).normalize_allow_zero(true));
+            let bdd = -1.0 * (bp.dot((b_dir + next_dir).normalize_allow_zero(true)));
             if add > 0.0 {
                 let mut pd = distance.distance;
                 if get_perpendicular_distance(&mut pd, ap, -a_dir) {

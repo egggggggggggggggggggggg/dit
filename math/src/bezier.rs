@@ -1,7 +1,10 @@
+use std::fmt::Display;
+
 use crate::{
     arit::{mix, non_zero_sign, sign},
     calc::{Polynomial, solve_cubic, solve_quadratic},
     lalg::Vec2,
+    shape::Intersections,
 };
 const MSDFGEN_CUBIC_SEARCH_STARTS: usize = 4;
 const MSDFGEN_CUBIC_SEARCH_STEPS: usize = 4;
@@ -45,6 +48,21 @@ bitflags::bitflags! {
         const MAGENTA = 5;
         const CYAN = 6;
         const WHITE = 7;
+    }
+}
+impl Display for EdgeColor {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match *self {
+            Self::BLACK => writeln!(f, "BLACK"),
+            Self::RED => writeln!(f, "RED"),
+            Self::GREEN => writeln!(f, "GREEN"),
+            Self::YELLOW => writeln!(f, "YELLOW"),
+            Self::BLUE => writeln!(f, "BLUE"),
+            Self::MAGENTA => writeln!(f, "MAGENTA"),
+            Self::CYAN => writeln!(f, "CYAN"),
+            Self::WHITE => writeln!(f, "WHITE"),
+            _ => writeln!(f, "Unrecognized color"),
+        }
     }
 }
 
@@ -105,11 +123,18 @@ pub enum BezierTypes {
     Cubic(CubicBezier),
 }
 impl BezierTypes {
-    pub fn degree(&self) -> i64 {
+    pub fn degree(&self) -> u64 {
         match self {
             BezierTypes::Linear(_) => 1,
             BezierTypes::Quadratic(_) => 2,
             BezierTypes::Cubic(_) => 3,
+        }
+    }
+    pub fn control_points(&self) -> Vec<Vec2> {
+        match self {
+            BezierTypes::Linear(l) => l.p.to_vec(),
+            BezierTypes::Quadratic(q) => q.p.to_vec(),
+            BezierTypes::Cubic(c) => c.p.to_vec(),
         }
     }
 }
@@ -117,6 +142,7 @@ impl Bezier for BezierTypes {
     ///Gets the point at that specified param value
     ///Bezier curves can be though of as stacking lerps hence the param or t value
     ///t = [0.0 to 1.0]
+    ///
     fn point(&self, param: f64) -> Vec2 {
         match self {
             BezierTypes::Linear(b) => b.point(param),
@@ -145,7 +171,7 @@ impl Bezier for BezierTypes {
         match self {
             BezierTypes::Linear(b) => b.signed_distance(origin, param),
             BezierTypes::Quadratic(b) => {
-                println!("quadratic case: {:?}", b);
+                // println!("quadratic case: {:?}", b);
                 b.signed_distance(origin, param)
             }
             BezierTypes::Cubic(b) => b.signed_distance(origin, param),
@@ -425,7 +451,7 @@ impl Bezier for QuadraticBezier {
                 let qe = qa + ab * (2.0 * solutions[i]) + br * (solutions[i] * solutions[i]);
                 let distance = qe.length();
                 if distance <= min_distance.abs() {
-                    min_distance = non_zero_sign((ab + br * solutions[i]).dot(qe)) * distance;
+                    min_distance = non_zero_sign((ab + br * solutions[i]).cross(qe)) * distance;
                     *param = solutions[i];
                 }
             }

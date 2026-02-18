@@ -29,6 +29,7 @@ impl<C: ContourCombiner> ShapeDistanceFinder<C> {
         let mut edge_cache_iter = self.edge_cache.iter_mut();
         for (contour_index, contour) in self.shape.contours.iter().enumerate() {
             if contour.edges.is_empty() {
+                println!("Contour edges were empty for some reason");
                 continue;
             }
             let edge_selector = self.contour_combiner.edge_selector(contour_index);

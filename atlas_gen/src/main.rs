@@ -23,13 +23,13 @@ fn entry() {
         Atlas::new(1024, 1024, atlas_allocator, 4, false);
 
     let target_font_px = 64;
-    let dmax_px = 4.0;
+    let dmax_px = 1.0;
     for ch in '!'..'~' {
         let mut seed = 0;
         let gid = font.lookup(ch as u32).unwrap();
         let mut shape = font.assemble_glyf(gid as u16).unwrap();
-        // edge_coloring_simple(&mut shape, CROSS_THRESHOLD.sin(), &mut seed);
-
+        // shape.normalize();
+        edge_coloring_simple(&mut shape, CROSS_THRESHOLD.sin(), &mut seed);
         let glyph = font.glyf.get_glyf(gid as u16).unwrap().clone();
         let bounds = glyph.get_header();
 
@@ -81,18 +81,18 @@ fn entry() {
                     .round() as u8;
                 //pixel mistmatch issue
 
-                println!(
-                    "{:?}, after conversion: {}, {}, {}",
-                    distance, r_0_255, g_0_255, b_0_255,
-                );
-                println!("previous distance: {:?}", previous_distance);
-                previous_distance = distance;
+                // println!(
+                //     "{:?}, after conversion: {}, {}, {}",
+                //     distance, r_0_255, g_0_255, b_0_255,
+                // );
+                // println!("previous distance: {:?}", previous_distance);
+                // previous_distance = distance;
                 let pixel = Rgb([r_0_255, g_0_255, b_0_255]);
                 output_image.put_pixel(px, pixel_height - 1 - py, pixel);
             }
         }
         texture_atlas.add_image(ch, &output_image).unwrap();
-        output_image.save(format!("./res/{}.png", ch)).unwrap();
+        // output_image.save(format!("./res/{}.png", ch)).unwrap();
     }
 
     texture_atlas
