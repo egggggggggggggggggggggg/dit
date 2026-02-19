@@ -1,10 +1,9 @@
 use std::fmt::Display;
 
 use crate::{
-    arit::{mix, non_zero_sign, sign},
-    calc::{Polynomial, solve_cubic, solve_quadratic},
+    arit::{mix, non_zero_sign},
+    calc::{solve_cubic, solve_quadratic},
     lalg::Vec2,
-    shape::Intersections,
 };
 const MSDFGEN_CUBIC_SEARCH_STARTS: usize = 4;
 const MSDFGEN_CUBIC_SEARCH_STEPS: usize = 4;
@@ -357,7 +356,7 @@ impl Bezier for LinearBezier {
     fn set_color(&mut self, color: EdgeColor) {
         self.color = color;
     }
-    fn direction(&self, t: f64) -> Vec2 {
+    fn direction(&self, _t: f64) -> Vec2 {
         self.p[1] - self.p[0]
     }
 
@@ -386,7 +385,7 @@ impl Bezier for LinearBezier {
             dot: ab.normalize().dot(eq.normalize()).abs(),
         }
     }
-    fn direction_change(&self, param: f64) -> Vec2 {
+    fn direction_change(&self, _param: f64) -> Vec2 {
         Vec2::default()
     }
     // fn scanline_intersections(&self, x: &mut [f64; 3], dy: &mut [i32; 3], y: f64) -> i32 {
@@ -433,7 +432,7 @@ impl Bezier for QuadraticBezier {
         let b = 3.0 * ab.dot(br);
         let c = 2.0 * ab.dot(ab) + qa.dot(br);
         let d = qa.dot(ab);
-        let (solutions, is_infinite) = solve_cubic(a, b, c, d);
+        let (solutions, _is_infinite) = solve_cubic(a, b, c, d);
         let mut endpoint_dir = self.direction(0.0);
         let mut min_distance = non_zero_sign(endpoint_dir.cross(qa)) * qa.length();
         *param = -qa.dot(endpoint_dir) / endpoint_dir.dot(endpoint_dir);
@@ -478,7 +477,7 @@ impl Bezier for QuadraticBezier {
             }
         }
     }
-    fn direction_change(&self, param: f64) -> Vec2 {
+    fn direction_change(&self, _param: f64) -> Vec2 {
         (self.p[2] - self.p[1]) - (self.p[1] - self.p[0])
     }
     fn bound(&self, bounds: &mut Bounds) {

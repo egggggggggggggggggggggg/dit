@@ -1,15 +1,11 @@
 use atlas_gen::{
-    allocator::ShelfAllocator,
-    atlas::Atlas,
-    cont_comb::{ContourCombiner, OverlappingContourCombiner, SimpleContourCombiner},
-    distances::MultiDistance,
-    edge_coloring::edge_coloring_simple,
-    edge_select::MultiDistanceSelector,
+    allocator::ShelfAllocator, atlas::Atlas, cont_comb::SimpleContourCombiner,
+    edge_coloring::edge_coloring_simple, edge_select::MultiDistanceSelector,
     shape_distance_finder::ShapeDistanceFinder,
 };
 use font_parser::TtfFont;
 use image::{ImageBuffer, Rgb};
-use math::{arit::clamp, bezier::Bounds, calc::Range, lalg::Vec2, shape::Shape};
+use math::{bezier::Bounds, calc::Range, lalg::Vec2, shape::Shape};
 
 fn main() {
     entry();
@@ -54,7 +50,6 @@ fn entry() {
             ImageBuffer::new(pixel_width, pixel_height);
 
         for py in 0..pixel_height {
-            let mut previous_distance = MultiDistance::default();
             for px in 0..pixel_width {
                 let gx = bounds.x_min as f64 + (px as f64 + 0.5) / scale;
                 let gy = bounds.y_min as f64 + (py as f64 + 0.5) / scale;
@@ -102,34 +97,3 @@ fn entry() {
 }
 
 //gotta add some info to the thing for it to properly use it
-pub struct GlyphGeometry {
-    index: i64,
-    codepoint: u16,
-    geometry_scale: f64,
-    shape: Shape,
-    bounds: Bounds,
-    advance: f64,
-}
-pub struct Box {
-    rect: Rectangle,
-    range: Range,
-    scale: f64,
-    translate: Vec2,
-    outter_padding: Padding,
-}
-pub struct Padding {
-    l: f64,
-    b: f64,
-    r: f64,
-    t: f64,
-}
-pub struct Rectangle {
-    x: i64,
-    y: i64,
-    w: i64,
-    h: i64,
-}
-pub struct OrientedRectangle {
-    rect: Rectangle,
-    oriented: bool,
-}

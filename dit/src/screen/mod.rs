@@ -45,8 +45,6 @@ pub struct Screen {
     pub max_cells: usize,
     pub damaged: Vec<usize>,
 }
-pub fn rand_letter() {}
-
 impl Screen {
     pub fn new(max_rows: usize, max_cells: usize) -> Self {
         let mut rows = Vec::new();
@@ -257,71 +255,17 @@ impl Cursor {
         self.cursor_state = new_state;
     }
 }
-struct TCell {
-    glyph: char,
-    fg: Color,
-    bg: Color,
-    flags: CellFlags,
+enum Mode {
+    Insert,
+    Cursor,
 }
-impl Default for TCell {
-    fn default() -> Self {
-        Self {
-            glyph: ' ',
-            fg: [0, 0, 0, 0],
-            bg: [0, 0, 0, 0],
-            flags: CellFlags::empty(),
-        }
-    }
+struct Cursor2 {}
+impl Cursor2 {}
+
+struct Screen2 {
+    cursor: Cursor2,
+    mode: Mode,
+
 }
-impl TCell {
-    fn change_glyph(&mut self, new_glyph: char) {
-        self.glyph = new_glyph;
-    }
-}
-//contains dim parameters specifying the current size of the terminal screen
-struct TScreen {
-    //when a row gets evicted from the screen it gets cached to avoid having to pull it back up
-    row_cache: HashMap<usize, TRow>,
-    rows: Vec<TRow>,
-    cell_count: u32, //specifies the amount of cells in a given row
-    row_count: u32,
-    cursor: Cursor, //where the cursor is in the screen
-    raw: Vec<char>, //contains the raw characters within the whole terminal session
-}
-impl TScreen {
-    fn new(row_count: u32, cell_count: u32) {
-        let row_cache = HashMap::new();
-        let mut rows = Vec::with_capacity(row_count as usize);
-        for i in 0..row_count {
-            let mut cells = Vec::new();
-            for _ in 0..cell_count {
-                cells.push(TCell::default());
-            }
-            let row = TRow {
-                cells,
-                identifier: i as usize,
-                pos_id: i as usize,
-            };
-            rows.push(row);
-        }
-        Self {
-            row_cache,
-            rows,
-            cell_count,
-            row_count,
-            cursor: Cursor::new(cell_count, row_count),
-            raw: Vec::new(),
-        };
-    }
-    fn update_cell(&mut self, row_id: usize, cell_id: usize, new_cell: TCell) {
-        let row = &self.rows[row_id];
-        let cell = &row.cells[cell_id];
-    }
-}
-//identifier is the unique buffer id for when scrollback is needed
-//pos_id is relative to its currently position in the terminal screen
-struct TRow {
-    cells: Vec<TCell>,
-    identifier: usize,
-    pos_id: usize,
-}
+
+impl Screen2 {}

@@ -47,12 +47,3 @@ impl AtlasAllocator for ShelfAllocator {
         (self.width, self.height)
     }
 }
-pub struct SkylineAllocator {
-    width: u32,
-    height: u32,
-}
-impl SkylineAllocator {
-    fn new(width: u32, height: u32) -> Self {
-        Self { width, height }
-    }
-}

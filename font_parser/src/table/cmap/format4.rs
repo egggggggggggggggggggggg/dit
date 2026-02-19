@@ -1,27 +1,23 @@
-use crate::{
-    error::{Error, ParseError},
-    table::cmap::CMapGroup,
-    cursor::Cursor,
-};
+use crate::{cursor::Cursor, error::Error, table::cmap::CMapGroup};
 
 pub fn parse_format4(cursor: &mut Cursor) -> Result<Vec<CMapGroup>, Error> {
-    let format = cursor.read_u16()?;
+    let _format = cursor.read_u16()?;
     let length = cursor.read_u16()?;
-    let language = cursor.read_u16()?;
-    let segCountX2 = cursor.read_u16()?;
-    let search_range = cursor.read_u16()?;
-    let entry_selector = cursor.read_u16()?;
-    let range_shift = cursor.read_u16()?;
+    let _language = cursor.read_u16()?;
+    let seg_count2 = cursor.read_u16()?;
+    let _search_range = cursor.read_u16()?;
+    let _entry_selector = cursor.read_u16()?;
+    let _range_shift = cursor.read_u16()?;
     let mut end_codes = Vec::new();
     let mut start_codes = Vec::new();
     let mut id_deltas = Vec::new();
     let mut id_range_offset = Vec::new();
     let mut glyph_id_array = Vec::new();
-    let seg_count = segCountX2 as usize / 2 as usize;
+    let seg_count = seg_count2 as usize / 2 as usize;
     for _ in 0..seg_count {
         end_codes.push(cursor.read_u16()?);
     }
-    let reserved_pad = cursor.read_u16()?;
+    let _reserved_pad = cursor.read_u16()?;
     for _ in 0..seg_count {
         start_codes.push(cursor.read_u16()?);
     }

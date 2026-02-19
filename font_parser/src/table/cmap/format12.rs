@@ -1,8 +1,4 @@
-use crate::{
-    error::{Error, ParseError},
-    table::cmap::CMapGroup,
-    cursor::Cursor,
-};
+use crate::{cursor::Cursor, error::Error, table::cmap::CMapGroup};
 
 pub fn parse_format12(cursor: &mut Cursor) -> Result<Vec<CMapGroup>, Error> {
     let format = cursor.read_u16()?;

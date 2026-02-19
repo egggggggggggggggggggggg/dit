@@ -1,13 +1,12 @@
 use std::cmp::Ordering;
 
 use crate::{
-    arit::{mix, mixf, sign},
-    bezier::{Bezier, BezierTypes, Bounds, CubicBezier},
-    contour::{self, Contour},
+    arit::sign,
+    bezier::{Bezier, BezierTypes, Bounds},
+    contour::Contour,
     lalg::Vec2,
 };
 //0.5 * (sqrt5 - 1)
-const RATIO: f64 = 0.5 * (2.2360679775 - 1.0);
 const DECONVERGE_OVERSHOOT: f64 = 1.11111111111111111;
 #[derive(Clone, Debug)]
 pub struct Shape {
@@ -23,11 +22,6 @@ pub struct Intersections {
     // Which contou it intersects with
     pub contour_index: f64,
 }
-impl Intersections {
-    fn compare(&mut self, b: &Self) -> std::cmp::Ordering {
-        self.x.partial_cmp(&b.x).unwrap()
-    }
-}
 
 const MSDFGEN_CORNER_DOT_EPSILON: f64 = 0.000001;
 //Methods defined here are for preprocessing of the shape to prevent weird artifacts later on
@@ -35,7 +29,6 @@ const MSDFGEN_CORNER_DOT_EPSILON: f64 = 0.000001;
 //inside of a double contoured shape like an o to be outside and vice versa
 //Also general pixel mistmatch as a result of the improper distance selecting
 impl Shape {
-    pub fn add_contour(&mut self, contour: Contour) {}
     pub fn normalize(&mut self) {
         for contour in &mut self.contours {
             if contour.edges.len() == 1 {
@@ -82,24 +75,12 @@ impl Shape {
             }
         }
     }
-    //This is probably not needed as all it does it check if the memory of the shape itself initialized which is
-    //Only really smth that happens in C++
-    pub fn validate(&self) {
-        for contour in &self.contours {
-            if !contour.edges.is_empty() {
-                let corner = contour.edges.last().unwrap().point(1.0);
-            }
-        }
-    }
 
     pub fn bound(&mut self) {
         for contour in &mut self.contours {
             contour.bound(&mut self.bounds);
             //recurive inclusion of lower item bounds
         }
-    }
-    pub fn bound_miters(&mut self) {
-        const LARGE_VALUE: f64 = 1e240;
     }
     pub fn get_bounds(&mut self) -> Bounds {
         self.bounds

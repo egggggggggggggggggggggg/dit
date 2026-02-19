@@ -33,7 +33,7 @@ pub trait DistanceSelector: Default {
 
 #[derive(Default, Clone)]
 pub struct PerpDistSelectorBase {
-    edge_cache: PerpendicularEdgeCache,
+    _edge_cache: PerpendicularEdgeCache,
     min_true_distance: SignedDistance,
     min_neg_perp_distance: f64,
     min_pos_perp_distance: f64,
@@ -46,7 +46,7 @@ impl PerpDistSelectorBase {
             min_true_distance: SignedDistance::default(),
             min_neg_perp_distance: -f64::MAX,
             min_pos_perp_distance: f64::MAX,
-            edge_cache: PerpendicularEdgeCache::default(),
+            _edge_cache: PerpendicularEdgeCache::default(),
             near_edge: None,
             near_edge_param: 0.0,
         }
@@ -61,7 +61,7 @@ impl PerpDistSelectorBase {
     pub fn is_edge_relevant(
         &self,
         cache: &PerpendicularEdgeCache,
-        edge: BezierTypes,
+        _edge: BezierTypes,
         p: Vec2,
     ) -> bool {
         //might be wrong
@@ -165,7 +165,6 @@ impl DistanceSelector for PerpendicularDistanceSelector {
         next_edge: BezierTypes,
     ) {
         if self.base.is_edge_relevant(&cache, edge, self.p) {
-            println!("Edge was relevant");
             let mut param = 0.0;
             let distance = edge.signed_distance(self.p, &mut param);
             self.base.add_edge_true_distance(edge, distance, param);
@@ -237,17 +236,12 @@ impl DistanceSelector for MultiDistanceSelector {
         let contains_red = edge.color().contains(EdgeColor::RED);
         let contains_green = edge.color().contains(EdgeColor::GREEN);
         let contains_blue = edge.color().contains(EdgeColor::BLUE);
-        println!(
-            "red: {}, green: {}, blue: {}",
-            contains_red, contains_green, contains_blue
-        );
         if (edge.color().contains(EdgeColor::RED) && self.r.is_edge_relevant(&cache, edge, self.p))
             || (edge.color().contains(EdgeColor::GREEN)
                 && self.g.is_edge_relevant(&cache, edge, self.p))
             || (edge.color().contains(EdgeColor::BLUE)
                 && self.b.is_edge_relevant(&cache, edge, self.p))
         {
-            println!("Adding edge");
             let mut param = 0.0;
             let distance = edge.signed_distance(self.p, &mut param);
             if contains_red {
@@ -341,9 +335,9 @@ impl DistanceSelector for TrueDistanceSelector {
     fn add_edge(
         &mut self,
         cache: &mut Self::EdgeCache,
-        prev_edge: BezierTypes,
+        _prev_edge: BezierTypes,
         edge: BezierTypes,
-        next_edge: BezierTypes,
+        _next_edge: BezierTypes,
     ) {
         let delta = DISTANCE_DELTA_FACTOR * (self.p - cache.point).length();
         if cache.abs_distance - delta <= self.min_distance.distance.abs() {

@@ -62,57 +62,10 @@ impl DistanceType for MultiAndTrueDistance {
         Self::new()
     }
 }
-struct DistanceMapping {
-    scale: f64,
-    translate: f64,
-}
-impl Default for DistanceMapping {
-    fn default() -> Self {
-        Self {
-            scale: 1.0,
-            translate: 0.0,
-        }
-    }
-}
-impl DistanceMapping {
-    pub fn new(scale: f64, translate: f64) -> Self {
-        Self { scale, translate }
-    }
-    pub fn inverse_with_range(range: Range) -> Self {
-        let range_width = range.upper - range.lower;
-        let translate = range.lower / if range_width != 0.0 { range_width } else { 1.0 };
-        Self::new(range_width, translate)
-    }
-    pub fn inverse(&self) -> Self {
-        Self {
-            scale: 1.0 / self.scale,
-            translate: -self.scale * self.translate,
-        }
-    }
-    pub fn apply_with_transform(&self, d: f64) -> f64 {
-        self.scale * (d + self.translate)
-    }
-    pub fn apply(&self, d: f64) -> f64 {
-        self.scale * d
-    }
-}
 
 struct Range {
     lower: f64,
     upper: f64,
-}
-impl Range {
-    #[inline(always)]
-    fn symmetrical(width: f64) -> Self {
-        Self {
-            lower: -0.5 * width,
-            upper: 0.5 * width,
-        }
-    }
-    #[inline(always)]
-    fn bounds(lower: f64, upper: f64) -> Self {
-        Self { upper, lower }
-    }
 }
 impl MulAssign<f64> for Range {
     fn mul_assign(&mut self, rhs: f64) {
@@ -152,11 +105,6 @@ impl Mul<Range> for f64 {
             upper: self * rhs.upper,
         }
     }
-}
-trait DistancePixelConversion {
-    type Distance;
-    const CHANNELS: usize;
-    fn write_pixel(&self, pixels: &mut [f32], distance: Self::Distance);
 }
 
 #[derive(Copy, Clone, Debug)]

@@ -3,8 +3,6 @@ use math::{
     lalg::Vec2,
     shape::Shape,
 };
-
-const ANGLE_THRESHOLD: f64 = 3.0;
 const EDGE_COLORS: [EdgeColor; 3] = [EdgeColor::CYAN, EdgeColor::MAGENTA, EdgeColor::YELLOW];
 
 fn seed_extract2(seed: &mut u64) -> i32 {
@@ -42,10 +40,8 @@ fn switch_color_banned(color: &mut EdgeColor, seed: &mut u64, banned: EdgeColor)
 }
 
 pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut u64) {
-    // println!("prior to coloring : {:?}", shape);
     let cross_threshold = angle_threshold.sin();
     let mut color = init_color(seed);
-    println!("init color: {}", color);
     let mut corners = Vec::new();
     for contour in &mut shape.contours {
         if contour.edges.is_empty() {
@@ -64,15 +60,11 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
             prev_direction = edge.direction(1.0);
         }
         if corners.is_empty() {
-            println!("No corners");
-            println!("previous color: {}", color);
             switch_color(&mut color, seed);
             for edge in &mut contour.edges {
                 edge.set_color(color);
             }
-            println!("after color: {}", color);
         } else if corners.len() == 1 {
-            println!("Teardrop case");
             let mut colors = [EdgeColor::WHITE; 3];
             switch_color(&mut color, seed);
             colors[0] = color;
@@ -115,14 +107,11 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
                 }
             }
         } else {
-            println!("Regular case");
             let corner_count = corners.len();
             let mut spline = 0;
             let start = corners[0];
             let m = contour.edges.len();
-            println!("color prior: {:?}", color);
             switch_color(&mut color, seed);
-            println!("color after: {:?}", color);
             let initial_color = color;
             for i in 0..m {
                 let index = (start + i) % m;
@@ -136,12 +125,9 @@ pub fn edge_coloring_simple(shape: &mut Shape, angle_threshold: f64, seed: &mut 
                     switch_color_banned(&mut color, seed, banned);
                 }
                 contour.edges[index].set_color(color);
-                println!("Color in loop: {:?}", color);
             }
         }
     }
-
-    // println!("after coloring : {:?}", shape);
 }
 fn is_corner(a: Vec2, b: Vec2, cross_threshold: f64) -> bool {
     a.dot(b) <= 0.0 || a.cross(b).abs() > cross_threshold

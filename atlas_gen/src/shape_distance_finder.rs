@@ -48,5 +48,4 @@ impl<C: ContourCombiner> ShapeDistanceFinder<C> {
         }
         self.contour_combiner.distance()
     }
-    pub fn one_shot_distance(&mut self, origin: <C::Selector as DistanceSelector>::ResetType) {}
 }

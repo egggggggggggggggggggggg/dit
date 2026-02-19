@@ -159,45 +159,7 @@ impl App {
             ttf_font,
         }
     }
-    // //this should really have each row have its own instance data instead so we dont reconstruct the whole thing
-    // pub fn construct_mesh(&self) -> Vec<InstanceData> {
-    //     let rows = &self.screen.rows;
-    //     let mut instance_vec = Vec::new();
-    //     let mut row_counter = 0.0f32;
-    //     for row in rows {
-    //         let mut cell_counter = 0.0f32;
-    //         for cell in &row.cells {
-    //             let instance_data = InstanceData {
-    //                 pos: [cell_counter, row_counter],
-    //                 size: [1.0, 1.0],
-    //                 uv: get_uv(cell.glyph),
-    //                 bg: cell.bg,
-    //                 fg: cell.fg,
-    //             };
-    //             instance_vec.push(instance_data);
-    //             cell_counter += 1.0;
-    //         }
-    //         row_counter += 1.0;
-    //     }
-    //     instance_vec
-    // }
-    // pub fn construct_row_mesh(&mut self, row_number: usize) {
-    //     let row = &self.screen.rows[row_number];
-    //     let mut cell_counter = 0.0f32;
-    //     let glyph_mesh = &mut self.glyph_mesh;
-    //     for cell in &row.cells {
-    //         let instance_data = InstanceData {
-    //             pos: [cell_counter, row_number as f32],
-    //             size: [1.0, 1.0],
-    //             uv: get_uv(cell.glyph),
-    //             bg: cell.bg,
-    //             fg: cell.fg,
-    //         };
-    //         let offset = self.screen.max_cells * row_number + cell_counter as usize;
-    //         glyph_mesh[offset] = instance_data;
-    //         cell_counter += 1.0;
-    //     }
-    // }
+
     pub fn check_damage(&mut self) -> bool {
         let screen = &self.screen;
         if screen.damaged.len() == 0 {
@@ -246,9 +208,7 @@ impl App {
         for ch in '!'..'~' {
             font.lookup(ch as u32).unwrap();
         }
-        //maintain a pen that holds the value of teh advanced width
-        //eg after a lookup its advance_width valuen and add to the pen
-        //use the pen for the base of the next character
+
         let units_per_em = font.head.units_per_em;
         let cell_advance = font.hmtx.metric_for_glyph(gid as u16).advance_width;
         let cell_ascent = font.hhea.ascent;
@@ -294,7 +254,6 @@ impl App {
                     None => ([0.0, 0.0], [0.0, 0.0]),
                     Some(char) => self.atlas.get_uv(char),
                 };
-                // println!("x0: {}, y0: {}, x1: {}, y1: {}", x0, y0, x1, y1);
                 vertices.push(Vertex {
                     pos: [x0, y0],
                     uv: [u0, v0],

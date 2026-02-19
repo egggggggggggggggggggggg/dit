@@ -21,7 +21,6 @@ pub struct CMapSubtable {
     pub offset: usize,
     pub format: u16,
 }
-struct CMap {}
 
 fn select_best_cmap(subtables: &[CMapSubtable]) -> Option<&CMapSubtable> {
     subtables
@@ -49,7 +48,7 @@ pub fn parse_cmap(
 ) -> Result<Vec<CMapGroup>, Error> {
     let rec = tables.get(b"cmap").ok_or(Error::MissingTable("cmap"))?;
     let mut cursor = Cursor::set(data, rec.table_offset);
-    let version = cursor.read_u16()?;
+    let _version = cursor.read_u16()?;
     let num_tables = cursor.read_u16()?;
     let mut subtables = Vec::new();
     for _ in 0..num_tables {

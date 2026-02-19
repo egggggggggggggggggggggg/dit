@@ -1,5 +1,3 @@
-use crate::lalg::Vec2;
-use core::panic;
 use std::{f64, ops::Mul};
 #[derive(Debug, Copy, Clone)]
 pub enum Degree {

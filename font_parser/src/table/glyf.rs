@@ -5,35 +5,35 @@ use crate::{
 };
 use math::{
     bezier::{BezierTypes, EdgeColor, LinearBezier, QuadraticBezier},
-    lalg::{BezierCurve, Transform, Vec2},
+    lalg::{Transform, Vec2},
 };
 use std::{collections::HashMap, sync::Arc};
 #[derive(Copy, Clone, Debug)]
 enum ComponentFlags {
-    ARG_1_AND_2_ARE_WORDS = 0x0001,
-    ARGS_ARE_XY_VALUES = 0x0002,
-    ROUND_XY_TO_GRID = 0x0004,
-    WE_HAVE_A_SCALE = 0x0008,
-    MORE_COMPONENTS = 0x0020,
-    WE_HAVE_AN_X_AND_Y_SCALE = 0x0040,
-    WE_HAVE_A_TWO_BY_TWO = 0x0080,
-    WE_HAVE_INSTRUCTIONS = 0x0100,
-    USE_MY_METRICS = 0x0200,
-    OVERLAP_COMPOUND = 0x0400,
-    SCALED_COMPONENT_OFFSET = 0x0800,
-    UNSCALED_COMPONENT_OFFSET = 0x1000,
-    RESERVED = 0xE010,
+    Arg1And2AreWords = 0x0001,
+    ArgsAreXyValues = 0x0002,
+    _RoundXyToGrid = 0x0004,
+    WeHaveAScale = 0x0008,
+    MoreComponents = 0x0020,
+    WeHaveAnXAndYScale = 0x0040,
+    WeHaveATwoByTwo = 0x0080,
+    _WeHaveInstructions = 0x0100,
+    _UseMyMetrics = 0x0200,
+    _OverlapCompound = 0x0400,
+    _ScaledComponentOffset = 0x0800,
+    _UnscaledComponentOffset = 0x1000,
+    _RESERVED = 0xE010,
 }
 #[derive(Copy, Clone, Debug)]
 enum SimpleFlags {
-    ON_CURVE_POINT = 0x01,
-    X_SHORT_VECTOR = 0x02,
-    Y_SHORT_VECTOR = 0x04,
-    REPEAT_FLAG = 0x08,
-    X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR = 0x10,
-    Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR = 0x20,
-    OVERLAP_SIMPLE = 0x40,
-    RESERVED = 0x80,
+    OnCurvePoint = 0x01,
+    XShortVector = 0x02,
+    YShortVector = 0x04,
+    RepeatFlag = 0x08,
+    XIsSameOrPositiveXShortVector = 0x10,
+    YIsSameOrPositiveYShortVector = 0x20,
+    _OverlapSimple = 0x40,
+    _RESERVED = 0x80,
 }
 pub type GlyphCache = HashMap<GlyphId, Arc<Glyph>>;
 
@@ -112,14 +112,14 @@ impl Glyf {
     }
     fn parse_transform(&mut self, cursor: &mut Cursor, flags: u16) -> Result<Transform, Error> {
         let mut transform = Transform::identity();
-        if flags & (ComponentFlags::WE_HAVE_A_SCALE as u16) != 0 {
+        if flags & (ComponentFlags::WeHaveAScale as u16) != 0 {
             let scale = cursor.read_f2dot14()?.to_f32();
             transform.a = scale as f64;
             transform.d = scale as f64;
-        } else if flags & (ComponentFlags::WE_HAVE_AN_X_AND_Y_SCALE as u16) != 0 {
+        } else if flags & (ComponentFlags::WeHaveAnXAndYScale as u16) != 0 {
             transform.a = cursor.read_f2dot14()?.to_f32() as f64;
             transform.d = cursor.read_f2dot14()?.to_f32() as f64;
-        } else if flags & (ComponentFlags::WE_HAVE_A_TWO_BY_TWO as u16) != 0 {
+        } else if flags & (ComponentFlags::WeHaveATwoByTwo as u16) != 0 {
             transform.a = cursor.read_f2dot14()?.to_f32() as f64;
             transform.b = cursor.read_f2dot14()?.to_f32() as f64;
             transform.c = cursor.read_f2dot14()?.to_f32() as f64;
@@ -128,9 +128,9 @@ impl Glyf {
         Ok(transform)
     }
     fn parse_args(&mut self, cursor: &mut Cursor, flags: u16) -> Result<(i32, i32), Error> {
-        let args = if flags & ComponentFlags::ARG_1_AND_2_ARE_WORDS as u16 != 0 {
+        let args = if flags & ComponentFlags::Arg1And2AreWords as u16 != 0 {
             (cursor.read_i16()? as i32, cursor.read_i16()? as i32)
-        } else if flags & ComponentFlags::ARGS_ARE_XY_VALUES as u16 != 0 {
+        } else if flags & ComponentFlags::ArgsAreXyValues as u16 != 0 {
             (cursor.read_i8()? as i32, cursor.read_i8()? as i32)
         } else {
             (cursor.read_u8()? as i32, cursor.read_u8()? as i32)
@@ -211,7 +211,7 @@ impl Glyf {
                 gid,
                 transform,
             });
-            if flags & ComponentFlags::MORE_COMPONENTS as u16 == 0 {
+            if flags & ComponentFlags::MoreComponents as u16 == 0 {
                 break;
             }
         }
@@ -239,7 +239,7 @@ impl Glyf {
         let mut i = 0;
         while i < num_points {
             let raw_flag = cursor.read_u8()?;
-            let repeat = if raw_flag & SimpleFlags::REPEAT_FLAG as u8 != 0 {
+            let repeat = if raw_flag & SimpleFlags::RepeatFlag as u8 != 0 {
                 cursor.read_u8()?
             } else {
                 0
@@ -252,14 +252,14 @@ impl Glyf {
         let x_coordinates = self.read_deltas(
             cursor,
             &flags,
-            &SimpleFlags::X_SHORT_VECTOR,
-            &SimpleFlags::X_IS_SAME_OR_POSITIVE_X_SHORT_VECTOR,
+            &SimpleFlags::XShortVector,
+            &SimpleFlags::XIsSameOrPositiveXShortVector,
         )?;
         let y_coordinates = self.read_deltas(
             cursor,
             &flags,
-            &SimpleFlags::Y_SHORT_VECTOR,
-            &SimpleFlags::Y_IS_SAME_OR_POSITIVE_Y_SHORT_VECTOR,
+            &SimpleFlags::YShortVector,
+            &SimpleFlags::YIsSameOrPositiveYShortVector,
         )?;
         let mut start = 0;
         let mut curves = Vec::with_capacity(end_points.len());
@@ -318,7 +318,7 @@ fn curve_from_coords(
     }
     let mut pts: Vec<(Vec2, bool)> = Vec::new();
     for i in start..=end {
-        let on_curve = flags[i] & SimpleFlags::ON_CURVE_POINT as u8 != 0;
+        let on_curve = flags[i] & SimpleFlags::OnCurvePoint as u8 != 0;
         pts.push((
             Vec2 {
                 x: x[i] as f64,

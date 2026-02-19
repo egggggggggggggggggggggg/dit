@@ -1,8 +1,5 @@
 use std::{collections::HashMap, hash::Hash};
-
-use font_parser::TtfFont;
 use image::{ImageBuffer, Pixel};
-
 use crate::allocator::AtlasAllocator;
 
 #[derive(Debug, Clone, Copy)]
@@ -133,7 +130,6 @@ where
         }
     }
 
-    pub fn serialize_metadata(&mut self, path: &'static str) {}
     // Doesn't change the image just removes the table entry that gives access to it
     // Allocator also removes its entry as a result of this
 }

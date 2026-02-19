@@ -1,7 +1,4 @@
-use math::{
-    lalg::Vec2,
-    shape::{self, Shape},
-};
+use math::shape::Shape;
 
 use crate::{distances::DistanceType, edge_select::DistanceSelector};
 
@@ -24,10 +21,10 @@ impl<T: DistanceSelector> ContourCombiner for SimpleContourCombiner<T> {
         let distance: <T as DistanceSelector>::DistanceType = edge_selector.distance();
         distance
     }
-    fn edge_selector(&mut self, i: usize) -> &mut Self::Selector {
+    fn edge_selector(&mut self, _i: usize) -> &mut Self::Selector {
         &mut self.shape_edge_selector
     }
-    fn new(shape: &Shape) -> Self {
+    fn new(_shape: &Shape) -> Self {
         Self {
             shape_edge_selector: Self::Selector::new(),
         }
@@ -67,8 +64,8 @@ impl<T: DistanceSelector> ContourCombiner for OverlappingContourCombiner<T> {
         let inner_scalar_distance = inner_distance.resolve();
         let outer_scalar_distance = outer_distance.resolve();
         //temporary solution as the type  isnt concretely defined
-        let mut distance = shape_edge_selector.distance();
-        let mut winding = 0;
+        let mut distance;
+        let winding;
         if inner_scalar_distance >= 0.0
             && inner_scalar_distance.abs() <= outer_scalar_distance.abs()
         {

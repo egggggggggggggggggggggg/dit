@@ -1,9 +1,6 @@
-use std::{
-    cmp::Ordering,
-    ops::{Add, Div, Mul, Neg, Sub},
-};
+use std::ops::{Add, Div, Mul, Neg, Sub};
 
-use crate::bezier::{Bezier, BezierTypes, CubicBezier, EdgeColor, LinearBezier, QuadraticBezier};
+use crate::bezier::{BezierTypes, CubicBezier, EdgeColor, LinearBezier, QuadraticBezier};
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Vec2 {
     pub x: f64,
@@ -248,62 +245,4 @@ impl BezierCurve {
         }
     }
     pub fn split_in_thirds(&mut self) {}
-}
-#[derive(PartialEq, Eq, Clone, Copy, Debug)]
-pub struct BinaryVector {
-    pub x: bool,
-    pub y: bool,
-    pub z: bool,
-}
-
-impl BinaryVector {
-    pub const BLACK: Self = Self {
-        x: false,
-        y: false,
-        z: false,
-    };
-    pub const RED: Self = Self {
-        x: true,
-        y: false,
-        z: false,
-    };
-    pub const GREEN: Self = Self {
-        x: false,
-        y: true,
-        z: false,
-    };
-    pub const BLUE: Self = Self {
-        x: false,
-        y: false,
-        z: true,
-    };
-    pub const YELLOW: Self = Self {
-        x: true,
-        y: true,
-        z: false,
-    };
-    pub const MAGENTA: Self = Self {
-        x: true,
-        y: false,
-        z: true,
-    };
-    pub const CYAN: Self = Self {
-        x: false,
-        y: true,
-        z: true,
-    };
-    pub const WHITE: Self = Self {
-        x: true,
-        y: true,
-        z: true,
-    };
-    pub fn new(x: bool, y: bool, z: bool) -> Self {
-        Self { x, y, z }
-    }
-    pub fn dot(&self, rhs: &Self) -> u8 {
-        (self.x & rhs.x) as u8 + (self.y & rhs.y) as u8 + (self.z & rhs.z) as u8
-    }
-    pub fn median(&self) -> bool {
-        ((self.x & self.y) | (self.x & self.z) | (self.y & self.z))
-    }
 }
