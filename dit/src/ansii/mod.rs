@@ -67,6 +67,55 @@ struct Rgb {
     pub g: u8,
     pub b: u8,
 }
+const THEME_SPECIFIC: [u8; 16] = [0u8; 16];
+const LEVELS: [u8; 6] = [0, 95, 135, 175, 215, 255];
+
+impl Rgb {
+    // constants for the 3 bit colors
+    const BLACK: Self = Self { r: 0, g: 0, b: 0 };
+    const RED: Self = Self { r: 255, g: 0, b: 0 };
+    const GREEN: Self = Self { r: 0, g: 255, b: 0 };
+    const YELLOW: Self = Self {
+        r: 255,
+        g: 255,
+        b: 0,
+    };
+    const BLUE: Self = Self { r: 0, g: 0, b: 255 };
+    const MAGENTA: Self = Self {
+        r: 255,
+        g: 0,
+        b: 255,
+    };
+    const CYAN: Self = Self {
+        r: 0,
+        g: 255,
+        b: 255,
+    };
+    const WHITE: Self = Self {
+        r: 255,
+        g: 255,
+        b: 255,
+    };
+    fn new(r: u8, g: u8, b: u8) -> Self {
+        Self { r, g, b }
+    }
+
+    fn from_index(n: u8) -> Self {
+        if n <= 231 && 16 <= n {
+            let i = n - 16;
+            let r = i / 36;
+            let g = (i & 36) / 6;
+            let b = i % 6;
+            return Self {
+                r: LEVELS[r as usize],
+                g: LEVELS[g as usize],
+                b: LEVELS[b as usize],
+            };
+        }
+        Self { r: 0, g: 0, b: 0 }
+    }
+}
+
 #[derive(Debug, Default, Clone)]
 pub struct Cursor {
     pub row: usize,
@@ -74,7 +123,13 @@ pub struct Cursor {
     pub visible: bool,
     pub blinking: bool,
 }
+
 const CSI: &str = "\x1b[";
+#[derive(Debug, Clone, Copy)]
+pub enum DeviceStatusReport {
+    Ok,
+    CursorPosition(u16, u16),
+}
 #[derive(Debug, Clone, Copy)]
 pub enum DeviceAttributes {
     VT100AdvancedVideo, // CSI ? 1 ; 2 c
@@ -88,9 +143,85 @@ pub enum DeviceAttributes {
     VT420(u16),         // CSI ? 64 ; Ps c
     VT510(u16),         // CSI ? 65 ; Ps c
 }
+// Upwards and above for this 
+// #[derive(Debug, Clone, Copy)]
+// enum VT220Features {
+//             1   132-columns.
+//             2   Printer.
+//             3   ReGIS graphics.
+//             4   Sixel graphics.
+//             6   Selective erase.
+//             8   User-defined keys.
+//             9   National Replacement Character sets.
+//         TechnicalCharacters = 15
+//             1 6    Locator port.
+//             1 7    Terminal state interrogation.
+//             1 8    User windows.
+//             2 1    Horizontal scrolling.
+//             2 2    ANSI color, e.g., VT525.
+//             2 8    Rectangular editing.
+//             2 9    ANSI text locator (i.e., DEC Locator mode).}
+#[derive(Debug, Clone, Copy)]
+enum TerminalType {
+    VT100 = 0, 
+    VT220 = 1,
+    VT240  = 2,
+    VT330 = 18,
+    VT340 = 19,
+    VT320 = 24,
+    VT382 = 32, 
+    VT420 = 41, 
+    VT510 = 61, 
+    VT520 = 64, 
+    VT525 = 65, 
+}
 
+#[derive(Debug, Clone, Copy, Default)]
+enum Intensity {
+    #[default]
+    Normal,
+    Bold,
+    Faint,
+}
+#[derive(Debug, Default, Clone, Copy)]
+enum Underline {
+    #[default]
+    None,
+    Single,
+    Double,
+}
 //Maintains the state machine and also calls the respective functions
-struct Attributes {}
+struct Attributes {
+    italic: bool,
+    blink: bool,
+    inverse: bool,
+    hidden: bool,
+    strike: bool,
+    underline: Underline,
+    intensity: Intensity,
+    fg: Rgb,
+    bg: Rgb,
+}
+impl Default for Attributes {
+    fn default() -> Self {
+        Self {
+            italic: false,
+            blink: false,
+            inverse: false,
+            hidden: false,
+            strike: false,
+            intensity: Intensity::default(),
+            underline: Underline::default(),
+            bg: Rgb::default(),
+            fg: Rgb::default(),
+        }
+    }
+}
+impl Attributes {
+    fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
 struct Cell {
     ch: char,
     attr: Attributes,
@@ -98,13 +229,32 @@ struct Cell {
 struct Screen {
     grid: Vec<Vec<Cell>>,
     cursor: Cursor,
+    char_attributes: Attributes,
 }
+#[derive(Debug, Default)]
+enum SimpleColors {
+    #[default]
+    Black,
+    Red,
+    Green,
+    Yellow,
+    Blue,
+    Magenta,
+    Cyan,
+    White,
+}
+
 // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Functions-using-CSI-_-ordered-by-the-final-character_s_
 // reference for implementing the escape codes and function dispatching
 impl Screen {}
+// THe handler shouldnt panic on unreognized escape codes. rather it should print it out instead
+
 impl Handler for Screen {
     fn bell() {}
     fn csi() {}
+    // Possible change to this can be matching on tuples instead of nested match statements
+    // Will benchmark it later when I have both versions down
+    // Low priority in terms of optimizations for terminal emulator
     fn handle_esc(
         &mut self,
         params: SmallVec<[u16; 8]>,
@@ -120,7 +270,117 @@ impl Handler for Screen {
             b'F' => self.previous_line(),
             b'G' => self.previous_line(),
             b'H' => self.cursor_position(params[0], params[1]),
-            b'm' => {}
+            // a look up table might be more suited for this repetitive logic, but it might overcomplicate it aswell. 
+            // for the sequences that have intermediates always match the intermediate first before interpreting the params;
+            b'^' => {
+
+            }
+            b'`' => {
+
+            }
+            b'a' => {
+
+            }
+            b'b' => {
+
+            }
+            b'c' => {
+
+            }
+            b'd' => {
+
+            }
+            b'e' => {
+
+            }
+            b'f' => {
+
+            }
+            b'g' => {
+
+            }
+            b'h' => {
+
+            }
+            b'i' => {
+
+            }
+            b'l' => {
+
+            }
+
+            b'm' => {
+                //Interpret the parmss
+                if params.len() == 0 {
+                    panic!("Params were not passed in, cannot interpret char attributes")
+                }
+                // Since this function is being moved to the Parser the char attribute function
+                // will be used to update state considering it makes it easier of a seperation
+                self.char_attributes(params);
+            }
+            b'n' => {
+                if let Some(inter) = intermediate.get(0) {
+                    match inter {
+                        b'>' => {}
+                        b'?' => {}
+                        _ => {}
+                    }
+                } else {
+                    self.device_status_report(params[0]);
+                }
+            }
+            b'p' => {
+                if let Some(inter) = intermediate.get(0) {
+                    match inter {
+                        b'#'
+                        _ => {}
+                    }
+                } else {
+                    self.
+                }
+            }
+            b'q' => {
+
+            }
+            b'r' => {
+
+            }
+            b's' => {
+
+            }
+            b't' => {
+
+            }
+            b'u' => {
+
+            }
+            b'v' => {
+
+            }
+            b'w' => {
+
+            }
+            b'x' => {
+
+            }
+            b'y' => {
+
+            }
+            b'z' => {
+
+            }
+            b'|' => {
+
+            }
+            b'}' => {
+
+            }
+            b'{' => {
+            
+            }
+            b'~' => {
+
+            }
             _ => todo!("Implement the rest of the stuff"),
         }
     }
@@ -139,9 +399,58 @@ impl Handler for Screen {
     #[inline(always)]
     fn previous_line(&mut self) {}
     #[inline(always)]
-    fn char_attributes(&mut self) {}
+    fn char_attributes(&mut self, params: SmallVec<[u16; 8]>) {
+        match params[0] {
+            0 => {
+                self.char_attributes.reset();
+            }
+            1 => self.char_attributes.intensity = Intensity::Bold,
+            2 => self.char_attributes.intensity = Intensity::Faint,
+            3 => self.char_attributes.italic = true,
+            4 => self.char_attributes.underline = Underline::Single,
+            5 => self.char_attributes.blink = true,
+            7 => self.char_attributes.inverse = true,
+            8 => self.char_attributes.hidden = true,
+            9 => self.char_attributes.strike = true,
+            21 => self.char_attributes.underline = Underline::Double,
+            22 => self.char_attributes.intensity = Intensity::Normal,
+            23 => self.char_attributes.italic = false,
+            24 => self.char_attributes.underline = Underline::None,
+            25 => self.char_attributes.blink = false,
+            27 => self.char_attributes.inverse = false,
+            28 => self.char_attributes.hidden = false,
+            29 => self.char_attributes.strike = false,
+            // Will include 3 bit color later, too tedious to write here
+            38 => {
+                self.char_attributes.fg = match params[1] {
+                    // Third param is useless; specifies color space
+                    2 => Rgb::new(params[3] as u8, params[4] as u8, params[5] as u8),
+                    5 => Rgb::from_index(params[2] as u8),
+                    _ => panic!("Improper param"),
+                }
+            }
+            48 => {
+                self.char_attributes.bg = match params[1] {
+                    // Third param is useless; specifies color space
+                    2 => Rgb::new(params[3] as u8, params[4] as u8, params[5] as u8),
+                    5 => Rgb::from_index(params[2] as u8),
+                    _ => panic!("Improper param"),
+                }
+            }
+            _ => panic!("Unrecognized initial param in the sequence"),
+        }
+    }
     fn osc(u: u8) {}
+    fn device_status_report(&mut self, param: u16) {
+        match param {
+            5 => return,
+        }
+    }
 }
+// The handler trait is responsible for the actions that need to be performed
+// Said actions include sending output the pty/tty
+// Thus the struct in which Handler gets implemented for must have access to a Fd
+
 pub trait Handler {
     fn cursor_up(&mut self, n: u16);
     fn cursor_down(&mut self, n: u16);
@@ -150,10 +459,12 @@ pub trait Handler {
     fn cursor_position(&mut self, new_x: u16, new_y: u16);
     fn next_line(&mut self);
     fn previous_line(&mut self);
-    fn char_attributes(&mut self);
+    fn char_attributes(&mut self, params: SmallVec<[u16; 8]>);
+    fn device_status_report(&mut self, param: u16);
     fn csi();
     fn bell();
     fn osc(u: u8);
+
     fn handle_esc(
         &mut self,
         params: SmallVec<[u16; 8]>,
@@ -177,7 +488,7 @@ impl Parser {
         }
     }
     pub fn execute_c0(&mut self, byte: u8) {}
-    pub fn advance(&mut self, byte: u8) {
+    pub fn consume(&mut self, byte: u8) {
         //C0 bytes take priority so these are handled first
 
         //anywhere state
