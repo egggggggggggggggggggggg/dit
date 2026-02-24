@@ -265,7 +265,6 @@ impl Cursor2 {}
 struct Screen2 {
     cursor: Cursor2,
     mode: Mode,
-
 }
 
 impl Screen2 {}

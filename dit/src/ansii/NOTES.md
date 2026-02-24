@@ -1,0 +1,17 @@
+ANSI ESCAPE CODES
+- Escape acts as a sorta signaler
+- Typically written as 0x1b for the raw hex representation
+- ASCII value is 27
+- CSI = Controk Sequence Introducer
+- C0 Sequences are 7 bit
+- C1 Sequences are 8 bit 
+- Raw bytes should be interpreted not from UTF-8 Decoding
+- Because C1 Control can be mistaken as bad UTF-8 terminals disable raw C1 Controls
+- Instead of 0x9b which is illegal utf-8 they use ESC [ 
+- Graphic chacacters are defined as the actual letters that are seen 
+- Cannot stop processing until its complete or illegal byte in the Sequences
+- Most terminals operate in 7 bit mode.
+- Finite state machine is what this is 
+- https://vt100.net/emu/dec_ansi_parser#STCSIIGN - Reference thingie
+- States + Actions
+- Start with the ground state and moves to the other state
