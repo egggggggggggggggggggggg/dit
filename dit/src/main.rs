@@ -1,4 +1,9 @@
-use dit::{ansii::Parser, renderer::App, shell::create_pty};
+use dit::{
+    ansii::Parser,
+    renderer::App,
+    shell::{Pty, create_pty},
+};
+use nix::unistd::getpid;
 use winit::event_loop::{ControlFlow, EventLoop};
 fn main() {
     // let event_loop = EventLoop::new().unwrap();
@@ -7,8 +12,10 @@ fn main() {
     // app.generate_screen_mesh();
     // event_loop.run_app(&mut app).unwrap();
     // let master_pty = create_pty().unwrap();
-    let mut parser = Parser::new();
-    parser.advance(0x1b);
-    parser.advance(0x5b);
-    
+    // let mut parser = Parser::new();
+    // parser.advance(0x1b);
+    // parser.advance(0x5b);
+    let mut pty = Pty::attempt_create().unwrap();
+    pty.test().unwrap();
+    println!("parent process id: {}", getpid());
 }

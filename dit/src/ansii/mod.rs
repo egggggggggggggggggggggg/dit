@@ -229,6 +229,7 @@ struct Cell {
 struct Screen {
     grid: Vec<Vec<Cell>>,
     cursor: Cursor,
+    // Holds the state of attributes for a new character that might be typed in
     char_attributes: Attributes,
 }
 #[derive(Debug, Default)]
@@ -390,11 +391,7 @@ impl Handler for Screen {
         }
     }
     fn osc(u: u8) {}
-    fn device_status_report(&mut self, param: u16) {
-        match param {
-            5 => return,
-        }
-    }
+    fn device_status_report(&mut self, param: u16) {}
 }
 // The handler trait is responsible for the actions that need to be performed
 // Said actions include sending output the pty/tty
