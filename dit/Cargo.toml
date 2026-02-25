@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-ash = "0.38.0"
+ash = "0.38.0" 
 ash-window = "0.13.0"
 bitflags = "2.10.0"
 image = "0.25.9"
@@ -13,4 +13,5 @@ winit = "0.30.12"
 font_parser = { path = "../font_parser" }
 atlas_gen = { path = "../atlas_gen" }
 smallvec = "1.15.1"
-nix = { version="0.31.1", features=["term", "process" ] }
+nix = { version="0.31.1", features=["term", "process", "fs"] }
+crossbeam = "0.8.4"

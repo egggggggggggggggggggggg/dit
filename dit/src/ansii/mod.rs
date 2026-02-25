@@ -143,7 +143,7 @@ pub enum DeviceAttributes {
     VT420(u16),         // CSI ? 64 ; Ps c
     VT510(u16),         // CSI ? 65 ; Ps c
 }
-// Upwards and above for this 
+// Upwards and above for this
 // #[derive(Debug, Clone, Copy)]
 // enum VT220Features {
 //             1   132-columns.
@@ -163,17 +163,17 @@ pub enum DeviceAttributes {
 //             2 9    ANSI text locator (i.e., DEC Locator mode).}
 #[derive(Debug, Clone, Copy)]
 enum TerminalType {
-    VT100 = 0, 
+    VT100 = 0,
     VT220 = 1,
-    VT240  = 2,
+    VT240 = 2,
     VT330 = 18,
     VT340 = 19,
     VT320 = 24,
-    VT382 = 32, 
-    VT420 = 41, 
-    VT510 = 61, 
-    VT520 = 64, 
-    VT525 = 65, 
+    VT382 = 32,
+    VT420 = 41,
+    VT510 = 61,
+    VT520 = 64,
+    VT525 = 65,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -270,44 +270,20 @@ impl Handler for Screen {
             b'F' => self.previous_line(),
             b'G' => self.previous_line(),
             b'H' => self.cursor_position(params[0], params[1]),
-            // a look up table might be more suited for this repetitive logic, but it might overcomplicate it aswell. 
+            // a look up table might be more suited for this repetitive logic, but it might overcomplicate it aswell.
             // for the sequences that have intermediates always match the intermediate first before interpreting the params;
-            b'^' => {
-
-            }
-            b'`' => {
-
-            }
-            b'a' => {
-
-            }
-            b'b' => {
-
-            }
-            b'c' => {
-
-            }
-            b'd' => {
-
-            }
-            b'e' => {
-
-            }
-            b'f' => {
-
-            }
-            b'g' => {
-
-            }
-            b'h' => {
-
-            }
-            b'i' => {
-
-            }
-            b'l' => {
-
-            }
+            b'^' => {}
+            b'`' => {}
+            b'a' => {}
+            b'b' => {}
+            b'c' => {}
+            b'd' => {}
+            b'e' => {}
+            b'f' => {}
+            b'g' => {}
+            b'h' => {}
+            b'i' => {}
+            b'l' => {}
 
             b'm' => {
                 //Interpret the parmss
@@ -332,55 +308,28 @@ impl Handler for Screen {
             b'p' => {
                 if let Some(inter) = intermediate.get(0) {
                     match inter {
-                        b'#'
+                        b'#' => {}
                         _ => {}
                     }
                 } else {
-                    self.
                 }
             }
-            b'q' => {
-
-            }
-            b'r' => {
-
-            }
-            b's' => {
-
-            }
-            b't' => {
-
-            }
-            b'u' => {
-
-            }
-            b'v' => {
-
-            }
-            b'w' => {
-
-            }
-            b'x' => {
-
-            }
-            b'y' => {
-
-            }
-            b'z' => {
-
-            }
-            b'|' => {
-
-            }
-            b'}' => {
-
-            }
-            b'{' => {
-            
-            }
-            b'~' => {
-
-            }
+            b'q' => {}
+            b'r' => {}
+            b's' => {}
+            b't' => {}
+            b'u' => {}
+            b'v' => {}
+            b'w' => {}
+            b'x' => {}
+            b'y' => {}
+            b'z' => {}
+            b'|' => {}
+            b'}' => {}
+            b'{' => {}
+            b'~' => match intermediate[0] {
+                _ => println!("?"),
+            },
             _ => todo!("Implement the rest of the stuff"),
         }
     }
