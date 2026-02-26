@@ -1,6 +1,6 @@
 use crossbeam::{channel, epoch::Owned};
 use nix::{
-    fcntl::OFlag,
+    fcntl::{FcntlArg::F_SETFL, OFlag, fcntl},
     libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, TIOCSCTTY, dup2, getpid, setsid},
     poll::{PollFd, PollFlags, PollTimeout},
     pty::{PtyMaster, Winsize, grantpt, openpty, posix_openpt, ptsname, unlockpt},
@@ -44,6 +44,43 @@ fn disable_echo(fd: BorrowedFd) -> nix::Result<()> {
     tcsetattr(fd, SetArg::TCSANOW, &termios)?;
     Ok(())
 }
+/// Tracks marker matching efficiently across streamed input
+pub struct MarkerMatcher {
+    marker: Vec<u8>,
+    matched: usize,
+}
+
+impl MarkerMatcher {
+    pub fn new(marker: &[u8]) -> Self {
+        Self {
+            marker: marker.to_vec(),
+            matched: 0,
+        }
+    }
+
+    /// Feed bytes, returns true if the marker is fully matched
+    pub fn feed(&mut self, bytes: &[u8]) -> bool {
+        for &b in bytes {
+            if b == self.marker[self.matched] {
+                self.matched += 1;
+                if self.matched == self.marker.len() {
+                    // Full marker matched
+                    self.matched = 0; // reset for next match
+                    return true;
+                }
+            } else {
+                // Mismatch: check if current byte starts a partial match
+                self.matched = if b == self.marker[0] { 1 } else { 0 };
+            }
+        }
+        false
+    }
+
+    pub fn reset(&mut self) {
+        self.matched = 0;
+    }
+}
+
 pub struct Pty {
     pub master: File,
     pub shell: &'static str,
@@ -94,7 +131,7 @@ impl Pty {
                 let master = unsafe { File::from_raw_fd(master_fd.into_raw_fd()) };
                 waitpid(child, Some(WaitPidFlag::WNOHANG))?;
                 println!("parent process id: {}", unsafe { getpid() });
-
+                fcntl(&master, F_SETFL(OFlag::O_NONBLOCK))?;
                 Ok(Self {
                     master,
                     shell: "/bin/bash",
@@ -141,9 +178,4 @@ impl Pty {
         // returns back to the
         Ok(n)
     }
-}
-
-#[inline(always)]
-pub fn contains_marker(buf: &mut [u8], marker: &[u8]) -> bool {
-    buf.ends_with(marker)
 }
