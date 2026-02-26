@@ -13,5 +13,5 @@ winit = "0.30.12"
 font_parser = { path = "../font_parser" }
 atlas_gen = { path = "../atlas_gen" }
 smallvec = "1.15.1"
-nix = { version="0.31.1", features=["term", "process", "fs", "ioctl"] }
+nix = { version="0.31.1", features=["term", "process", "fs", "ioctl", "poll"] }
 crossbeam = "0.8.4"

@@ -2,6 +2,7 @@ use crossbeam::{channel, epoch::Owned};
 use nix::{
     fcntl::OFlag,
     libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, TIOCSCTTY, dup2, getpid, setsid},
+    poll::{PollFd, PollFlags, PollTimeout},
     pty::{PtyMaster, Winsize, grantpt, openpty, posix_openpt, ptsname, unlockpt},
     sys::{
         stat::Mode,
@@ -45,9 +46,14 @@ fn disable_echo(fd: BorrowedFd) -> nix::Result<()> {
 }
 pub struct Pty {
     pub master: File,
+    pub shell: &'static str,
+    pub marker: &'static str,
 }
 impl Pty {
-    pub fn attempt_create() -> nix::Result<Self> {
+    // Adjust this to take a shell executable path
+    // Ex: zsh, fish, bash, sh
+
+    pub fn attempt_create(marker: &'static str) -> nix::Result<Self> {
         let master_fd = posix_openpt(OFlag::O_RDWR)?;
         grantpt(&master_fd)?;
         unlockpt(&master_fd)?;
@@ -89,101 +95,55 @@ impl Pty {
                 waitpid(child, Some(WaitPidFlag::WNOHANG))?;
                 println!("parent process id: {}", unsafe { getpid() });
 
-                Ok(Self { master })
+                Ok(Self {
+                    master,
+                    shell: "/bin/bash",
+                    marker,
+                })
             }
         }
     }
-    pub fn sanitize() {}
-    // Synchornization issues as the thing is reading before the slave has actually sent anything back
-    // Instead of using some arbirtrary marker set one. 
-    pub fn test(&mut self) -> std::io::Result<()> {
-        println!("test");
-        self.master.write_all(b"PS1='PROMPT_READY> '\n")?;
-        self.master.write_all(b"date\n")?;
-        println!("finished writing");
-        let mut output = Vec::new();
-        let mut buf = [0u8; 1024];
-
-        loop {
-            let n = self.master.read(&mut buf)?;
-            output.extend_from_slice(&buf[..n]);
-            if output.ends_with(b"$ ") {
-                break;
-            } // crude prompt detection
+    /// Polls for input from the slave side of the pty
+    /// Thin wrapper around it just handles converting the
+    pub fn poll(&self, timeout_ms: i32) -> nix::Result<bool> {
+        let mut fds = [PollFd::new(self.master.as_fd(), PollFlags::POLLIN)];
+        // If timeout is invalid it just ends itself so should prob add some way of safely panicking
+        let ready = nix::poll::poll(&mut fds, PollTimeout::try_from(timeout_ms).unwrap())?;
+        if ready == 0 {
+            return Ok(false); // timeout
         }
 
-        println!("ls output:\n{}", String::from_utf8_lossy(&output));
+        let revents = fds[0].revents().unwrap_or(PollFlags::empty());
+
+        if revents.contains(PollFlags::POLLERR | PollFlags::POLLHUP) {
+            return Err(nix::errno::Errno::EIO);
+        }
+
+        Ok(revents.contains(PollFlags::POLLIN))
+    }
+    /// This function assumes the user has not included
+    pub fn write(&mut self, cmds: Vec<&'static str>) -> std::io::Result<()> {
+        for cmd in cmds {
+            let marker = self.marker;
+            let payload = format!("{cmd}\nprintf '{marker} %d\\n' \"$?\"\n",);
+            self.master.write_all(payload.as_bytes())?;
+        }
         Ok(())
     }
+    /// user supplies their own buffer for reading the data into
+    /// If the buffer isn't big enough to read data into it returns a message indicating that
+    /// via a tuple
+    // Issues :
+    // How much hard coding should be done for the read function
+    // A method is needed to know when the
+    pub fn read(&mut self, buf: &mut [u8]) -> std::io::Result<usize> {
+        let n = self.master.read(buf)?;
+        // returns back to the
+        Ok(n)
+    }
 }
 
-pub fn create_pty2() -> nix::Result<File> {
-    let master_fd = posix_openpt(OFlag::O_RDWR)?;
-    grantpt(&master_fd)?;
-    unlockpt(&master_fd)?;
-    let slave_name = unsafe { ptsname(&master_fd) }?;
-    let slave_fd = nix::fcntl::open(Path::new(&slave_name), OFlag::O_RDWR, Mode::empty())?;
-    match unsafe { fork()? } {
-        ForkResult::Child => unsafe {
-            // Since this is now in an entirely new process, can;t see output from it
-            setsid();
-            // Connects the slave to the standard streams of the slave_fd
-            dup2(slave_fd.as_raw_fd(), STDIN_FILENO);
-            dup2(slave_fd.as_raw_fd(), STDOUT_FILENO);
-            dup2(slave_fd.as_raw_fd(), STDERR_FILENO);
-            // The child should only own the slave and thus the master_fd is useless to it.
-            close(master_fd)?;
-            if slave_fd.as_raw_fd() > 2 {
-                // If slave_Fd is not one of the standard streams close it as it would be redundant
-                close(slave_fd)?;
-            }
-            let shell = CString::new("/bin/bash").unwrap();
-            execvp(&shell, &[shell.clone()])?;
-            // Tells the compiler that this branch will not ccontinue executing code
-            unreachable!();
-        },
-        ForkResult::Parent { child } => {
-            close(slave_fd.as_raw_fd())?;
-            let mut master = unsafe { File::from_raw_fd(master_fd.as_raw_fd()) };
-            let mut buffer = [0u8; 1024];
-            waitpid(child, None)?;
-            Ok(master)
-        }
-    }
-    // Once the forking has been completed store the slave and master
-}
-
-pub fn create_pty() -> nix::Result<OwnedFd> {
-    let winsize = Winsize {
-        ws_row: 24,
-        ws_col: 80,
-        ws_xpixel: 0,
-        ws_ypixel: 0,
-    };
-    let pty = openpty(Some(&winsize), None)?;
-
-    match unsafe { fork()? } {
-        // When forking a new processes gets spawned, thats the child, the child executes this
-        // branch of the match statement
-        ForkResult::Child => unsafe {
-            let src = &pty.slave.as_raw_fd();
-            setsid();
-            dup2(*src, STDIN_FILENO);
-            dup2(*src, STDOUT_FILENO);
-            dup2(*src, STDERR_FILENO);
-            close(pty.slave.as_raw_fd())?;
-            close(pty.master.as_raw_fd())?;
-            //Bash shell
-            let shell = CString::new("/bin/bash").unwrap();
-            execvp(&shell, &[shell.clone()])?;
-        },
-        // The parent executes this one. In essence because theres multiple threads both branches get executed.
-        ForkResult::Parent { child } => {
-            close(pty.slave.as_raw_fd())?;
-            let mut master = unsafe { File::from_raw_fd(pty.master.as_raw_fd()) };
-            let mut buffer = [0u8; 1024];
-            waitpid(child, None)?;
-        }
-    }
-    Ok(pty.master)
+#[inline(always)]
+pub fn contains_marker(buf: &mut [u8], marker: &[u8]) -> bool {
+    buf.ends_with(marker)
 }
