@@ -1,5 +1,7 @@
 use smallvec::SmallVec;
+use std::collections::VecDeque;
 use std::io::Bytes;
+use std::os::linux::raw::stat;
 use std::panic;
 
 #[allow(non_snake_case)]
@@ -190,6 +192,7 @@ enum Underline {
     Double,
 }
 //Maintains the state machine and also calls the respective functions
+#[derive(Clone, Debug)]
 struct Attributes {
     italic: bool,
     blink: bool,
@@ -221,16 +224,6 @@ impl Attributes {
         *self = Self::default();
     }
 }
-struct Cell {
-    ch: char,
-    attr: Attributes,
-}
-struct Screen {
-    grid: Vec<Vec<Cell>>,
-    cursor: Cursor,
-    // Holds the state of attributes for a new character that might be typed in
-    char_attributes: Attributes,
-}
 #[derive(Debug, Default)]
 enum SimpleColors {
     #[default]
@@ -244,9 +237,140 @@ enum SimpleColors {
     White,
 }
 
+#[derive(Default, Clone)]
+struct Cell {
+    ch: char,
+    attr: Attributes,
+}
+
+struct Row {
+    data: Vec<Cell>,
+}
+impl Row {
+    fn new(cell_count: usize) -> Self {
+        Self {
+            data: vec![Cell::default(); cell_count],
+        }
+    }
+}
+#[derive(Default)]
+enum ScreenMode {
+    // Replace the current char
+    Insert,
+    // Inserts a new character
+    // between the current two around the cursor
+    #[default]
+    OnCursor,
+}
+// This assumes any application using the term emu
+// has access to only the current rows visisble to the screen
+struct Screen {
+    // Both handle the buffers that don't get shown to the user
+    // Holds the rows that are hidden when the user scrolls down
+    look_back_buffer: Vec<Vec<Cell>>,
+    // HOlds the rows that are hidden when the user scrolls up
+    look_ahead_buffer: Vec<Vec<Cell>>,
+
+    // This acts as a visual buffer aswell
+    // Contains both input and output buffer
+    grid: VecDeque<Vec<Cell>>,
+    col_size: usize,
+    row_size: usize,
+    cursor: Cursor,
+    // Holds the state of attributes for a new character that might be typed in
+    char_attributes: Attributes,
+    utf8_decoder: Utf8Decoderr,
+    // Thing that gets displayed on the terminal
+    input_buffer: Vec<&'static str>,
+    mode: ScreenMode,
+}
+
+//Methods for scrolling rows :
+// Mouse scrolling
+// Arrow keys for going down and up
+// For the alt screen buffer the application utilizing it must
+// Implement the controls that send the ANSI escape codes ofr the respective direction
+// Of movement
+// ex:  neovim utilizes hjkl. internally they map these keys to ansi escape codes they send
+// to the term emu
+
+impl Screen {
+    fn new(&mut self, col_size: usize, row_size: usize) -> Self {
+        Self {
+            look_ahead_buffer: Vec::new(),
+            look_back_buffer: Vec::new(),
+            grid: VecDeque::with_capacity(col_size),
+            col_size,
+            row_size,
+            cursor: Cursor::default(),
+            char_attributes: Attributes::default(),
+            utf8_decoder: Utf8Decoderr::new(),
+            input_buffer: Vec::new(),
+            mode: ScreenMode::default(),
+        }
+    }
+    fn write_to_screen(&mut self, char: char) {
+        if self.cursor.col + 1 == self.col_size {
+            // Must go to the next row
+            if self.cursor.row + 2 == self.row_size {
+                self.pushback_row();
+
+                // writes to this row
+                // now we can safely write to this rows
+            }
+        }
+        let row = &self.grid[self.cursor.row];
+        // gets the row
+    }
+    fn write_at_cursor() {}
+    fn get_row(&mut self) {}
+    fn alternate_screen_buffer(&mut self) {}
+    fn pushback_row(&mut self) {
+        // the oldest row so the first in the vec gets
+        match self.grid.pop_front() {
+            None => panic!("THIS SHOULD NEVER HAPPEN"),
+            Some(row) => {
+                self.look_back_buffer.push(row);
+                self.grid.push_back(vec![]);
+            }
+        }
+    }
+    fn change_viewport() {}
+    /// Resizes the windows to the given cell * row count
+    fn resize(&mut self, new_col: usize, new_row: usize) {
+        let prev_cell_count = self.col_size * self.row_size;
+        
+    }
+
+    fn pushfront_row(&mut self) {}
+    fn make_new_row(&mut self) {
+        // Pushes the oldest row into the lookback buffer
+    }
+}
+
+// Text Insertion branch of the system
+//Insert mode - Inserts text at position and replaces the previous characters at the insert
+//position.
+//Default mode - Inserts text at the current position and puts any characters ahead of the cursor
+//ahead by the amount of text inserted
+//For the default case where text gets pushed it requires that the screen be able to handle
+//allocating new space for it.
+//Cases:
+//End of row:
+//Moves the cursor to the next row and inserts the character there
+//Final row in the screen - requires a new row to be created and the oldest row(top row) to be
+//pushed into the look_back_buffer.
+//
+// Navigatng the rows
+// Use arrows keys or ansi escape codes
+// Two buffers + the main buffer. The two buffers are for hidden rows like the ones that are ahead
+// when the user scrolls up and the look beehind buffer when the user scrolls down or the capacity
+// of the main screen is filled. For the main buffer it utilizes a ring buffer for efficient
+// insertions of rows. For when the screen size resizes
+//
+
 // https://invisible-island.net/xterm/ctlseqs/ctlseqs.html#h3-Functions-using-CSI-_-ordered-by-the-final-character_s_
 // reference for implementing the escape codes and function dispatching
-impl Screen {}
 // THe handler shouldnt panic on unreognized escape codes. rather it should print it out instead
 
 impl Handler for Screen {
@@ -272,7 +396,9 @@ impl Handler for Screen {
             b'H' => self.cursor_position(params[0], params[1]),
             // a look up table might be more suited for this repetitive logic, but it might overcomplicate it aswell.
             // for the sequences that have intermediates always match the intermediate first before interpreting the params;
-            b'^' => {}
+            b'^' => {
+                
+            }
             b'`' => {}
             b'a' => {}
             b'b' => {}
@@ -390,6 +516,9 @@ impl Handler for Screen {
         }
     }
     fn osc(u: u8) {}
+    fn accumluate_utf8(&mut self, byte: u8) {
+        self.utf8_decoder.decode_ascii_stream(&[byte], output);
+    }
     fn device_status_report(&mut self, param: u16) {}
 }
 // The handler trait is responsible for the actions that need to be performed
@@ -410,6 +539,7 @@ pub trait Handler {
     fn bell();
     fn osc(u: u8);
 
+    fn accumluate_utf8(&mut self, byte: u8);
     fn handle_esc(
         &mut self,
         params: SmallVec<[u16; 8]>,
@@ -437,8 +567,51 @@ static UTF8D: [u8; 400] = [
     1, 1, 1, 1, 1, 1, 1, 1, 3, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 3, 1, 3, 1, 1, 1, 1, 1,
     1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
 ];
+
 const UTF8_ACCEPT: u32 = 0;
 const UTF8_REJECT: u32 = 1;
+struct Utf8Decoderr {
+    state: u32,
+    codep: u32,
+}
+impl Utf8Decoderr {
+    pub fn new() -> Self {
+        Self {
+            state: UTF8_ACCEPT,
+            codep: 0,
+        }
+    }
+    #[inline(always)]
+    pub fn decode(&mut self, byte: u8) -> u32 {
+        let ty = UTF8D[byte as usize] as u32;
+        self.codep = if self.state != 0 {
+            (self.codep << 6) | (byte as u32 & 0x3F)
+        } else {
+            (0xFF >> ty) & byte as u32
+        };
+        self.state = UTF8D[256 + (self.state as usize) * 16 + ty as usize] as u32;
+        self.state
+    }
+    /// User must provide there own buffer to write the characters into
+    // Makes the logic less complicated
+    fn decode_ascii_stream(&mut self, input: &[u8], output: &mut Vec<char>) {
+        // Persistent thingie
+        for &byte in input {
+            let s = self.decode(byte);
+            if s == UTF8_ACCEPT {
+                // Checks if the codep can be converted to a char
+                if let Some(ch) = std::char::from_u32(self.codep) {
+                    output.push(ch);
+                } else {
+                    panic!("Invalid codepoint");
+                }
+            } else if s == UTF8_REJECT {
+                output.push('\u{FFFD}');
+                self.state = UTF8_ACCEPT; // reset state
+            }
+        }
+    }
+}
 #[inline(always)]
 pub fn decode(state: &mut u32, codep: &mut u32, byte: u8) -> u32 {
     let ty = UTF8D[byte as usize] as u32;
@@ -482,43 +655,6 @@ mod tests {
     }
 }
 // Need to have a state machine for utf-8 decoding aswell
-#[derive(Default)]
-struct Utf8Decoder {
-    codepoint: u32,
-    needed: u8,
-}
-impl Utf8Decoder {
-    fn push(&mut self, byte: u8) -> Option<char> {
-        if self.needed == 0 {
-            if byte <= 0x7F {
-                return Some(byte as char);
-            } else if (byte & 0b1110_0000) == 0b1100_0000 {
-                self.codepoint = (byte & 0b0001_1111) as u32;
-                self.needed = 1;
-            } else if (byte & 0b1111_0000) == 0b1110_0000 {
-                self.codepoint = (byte & 0b0000_1111) as u32;
-                self.needed = 2;
-            } else if (byte & 0b1111_1000) == 0b1111_0000 {
-                self.codepoint = (byte & 0b0000_0111) as u32;
-                self.needed = 3;
-            } else {
-                return Some(REPLACEMENT);
-            }
-            return None;
-        } else {
-            if (byte & 0b1100_0000) != 0b1000_0000 {
-                self.needed = 0;
-                return Some('\u{FFFD}');
-            }
-            self.codepoint = (self.codepoint << 6) | (byte & 0b0011_1111) as u32;
-            self.needed -= 1;
-            if self.needed == 0 {
-                return std::char::from_u32(self.codepoint).or(Some('\u{FFFD}'));
-            }
-        }
-        None
-    }
-}
 
 pub struct Parser {
     pub state: State,
@@ -536,7 +672,7 @@ impl Parser {
         }
     }
     pub fn execute_c0(&mut self, byte: u8) {}
-    pub fn consume(&mut self, byte: u8) {
+    pub fn consume<H: Handler>(&mut self, byte: u8, handler: &mut H) {
         //C0 bytes take priority so these are handled first
 
         //anywhere state
@@ -552,7 +688,7 @@ impl Parser {
             //Reason why despite some of them are within the same range and same state change but different arms
             //is cuz different actions
             State::Ground => match byte {
-                0x20..=0x7f => print!("{}", byte as char),
+                0x20..=0x7f => handler.accumluate_utf8(byte),
                 _ => return,
             },
             State::Escape => match byte {
