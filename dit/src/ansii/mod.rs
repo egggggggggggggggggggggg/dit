@@ -1,7 +1,6 @@
-use core::panic;
-use std::io::Bytes;
-
 use smallvec::SmallVec;
+use std::io::Bytes;
+use std::panic;
 
 #[allow(non_snake_case)]
 //Control bytes for 7 bit mode
@@ -418,6 +417,109 @@ pub trait Handler {
         final_byte: u8,
     );
 }
+const REPLACEMENT: char = '\u{FFFD}';
+// https://bjoern.hoehrmann.de/utf-8/decoder/dfa/
+// Lookup table and algorithm here
+// Table driven state machine for utf-8 decoding
+static UTF8D: [u8; 400] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9,
+    7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7,
+    8, 8, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2,
+    0xa, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x3, 0x4, 0x3, 0x3, 0xb, 0x6, 0x6,
+    0x6, 0x5, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x8, 0x0, 0x1, 0x2, 0x3, 0x5, 0x8,
+    0x7, 0x1, 0x1, 0x1, 0x4, 0x6, 0x1, 0x1, 0x1, 0x1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 0, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 2, 1, 2, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 3, 1, 3, 1, 1, 1, 1, 1, 1, 1, 3, 1, 1, 1, 1, 1, 3, 1, 3, 1, 1, 1, 1, 1,
+    1, 1, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+];
+const UTF8_ACCEPT: u32 = 0;
+const UTF8_REJECT: u32 = 1;
+#[inline(always)]
+pub fn decode(state: &mut u32, codep: &mut u32, byte: u8) -> u32 {
+    let ty = UTF8D[byte as usize] as u32;
+    *codep = if *state != 0 {
+        (*codep << 6) | (byte as u32 & 0x3F)
+    } else {
+        (0xFF >> ty) & byte as u32
+    };
+    *state = UTF8D[256 + (*state as usize) * 16 + ty as usize] as u32;
+    *state
+}
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn decode_ascii_stream() {
+        let input = "Hello, 世界!".as_bytes();
+        let mut state = UTF8_ACCEPT;
+        let mut codep = 0;
+        let mut output = Vec::new();
+
+        for &byte in input {
+            let s = decode(&mut state, &mut codep, byte);
+            if s == UTF8_ACCEPT {
+                // Codepoint fully decoded, push it
+                if let Some(ch) = std::char::from_u32(codep) {
+                    output.push(ch);
+                } else {
+                    panic!("Invalid codepoint");
+                }
+            } else if s == UTF8_REJECT {
+                output.push('\u{FFFD}');
+                state = UTF8_ACCEPT; // reset state
+            }
+        }
+
+        let result: String = output.iter().collect();
+        assert_eq!(result, "Hello, 世界!");
+        println!("Decoded output: {}", result);
+    }
+}
+// Need to have a state machine for utf-8 decoding aswell
+#[derive(Default)]
+struct Utf8Decoder {
+    codepoint: u32,
+    needed: u8,
+}
+impl Utf8Decoder {
+    fn push(&mut self, byte: u8) -> Option<char> {
+        if self.needed == 0 {
+            if byte <= 0x7F {
+                return Some(byte as char);
+            } else if (byte & 0b1110_0000) == 0b1100_0000 {
+                self.codepoint = (byte & 0b0001_1111) as u32;
+                self.needed = 1;
+            } else if (byte & 0b1111_0000) == 0b1110_0000 {
+                self.codepoint = (byte & 0b0000_1111) as u32;
+                self.needed = 2;
+            } else if (byte & 0b1111_1000) == 0b1111_0000 {
+                self.codepoint = (byte & 0b0000_0111) as u32;
+                self.needed = 3;
+            } else {
+                return Some(REPLACEMENT);
+            }
+            return None;
+        } else {
+            if (byte & 0b1100_0000) != 0b1000_0000 {
+                self.needed = 0;
+                return Some('\u{FFFD}');
+            }
+            self.codepoint = (self.codepoint << 6) | (byte & 0b0011_1111) as u32;
+            self.needed -= 1;
+            if self.needed == 0 {
+                return std::char::from_u32(self.codepoint).or(Some('\u{FFFD}'));
+            }
+        }
+        None
+    }
+}
+
 pub struct Parser {
     pub state: State,
     pub params: SmallVec<[u16; 8]>,

@@ -20,26 +20,27 @@ fn main() -> Result<(), std::io::Error> {
     let marker = "__DONE__";
     let mut marker_matcher = MarkerMatcher::new(marker.as_bytes());
     let mut pty = Pty::attempt_create(marker).unwrap();
-    pty.write(vec!["ls", "date", ""])?;
+    let cmds = vec!["date", "date", "date", "date", "date", "date"];
+    pty.write(&cmds)?;
     // currently blocking, in a real world example poll
-    // would get called in an event loop with no poll condition blocking
-    let mut buf = [0u8; 4096];
-    let mut output = Vec::new();
-    loop {
-        if pty.poll(10)? {
-            let n = pty.read(&mut buf)?;
-            if n == 0 {
-                break;
-            }
-            output.extend_from_slice(&buf[..n]);
-            if marker_matcher.feed(&buf[..n]) {
-                marker_matcher.reset();
-                break;
+    //
+    for cmd in cmds {
+        let mut buf = [0u8; 4096];
+        let mut output = Vec::new();
+        loop {
+            if pty.poll(10)? {
+                let n = pty.read(&mut buf)?;
+                if n == 0 {
+                    break;
+                }
+                output.extend_from_slice(&buf[..n]);
+                if marker_matcher.feed(&buf[..n]) {
+                    marker_matcher.reset();
+                    break;
+                }
             }
         }
+        println!("{}", String::from_utf8_lossy(&output));
     }
-    // For commands like yes where there will never be a marker placed as it requires a SIGHUP to
-    // hang the solution is to set a timeout for the time that can be spent checking.
-    println!("{}", String::from_utf8_lossy(&output));
     Ok(())
 }

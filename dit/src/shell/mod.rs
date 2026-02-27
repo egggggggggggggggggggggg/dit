@@ -127,7 +127,6 @@ impl Pty {
                 unreachable!();
             },
             ForkResult::Parent { child } => {
-                close(slave_fd.as_raw_fd())?;
                 let master = unsafe { File::from_raw_fd(master_fd.into_raw_fd()) };
                 waitpid(child, Some(WaitPidFlag::WNOHANG))?;
                 println!("parent process id: {}", unsafe { getpid() });
@@ -141,7 +140,7 @@ impl Pty {
         }
     }
     /// Polls for input from the slave side of the pty
-    /// Thin wrapper around it just handles converting the
+    /// Thin wrapper around it just handles checking for POLLIN
     pub fn poll(&self, timeout_ms: i32) -> nix::Result<bool> {
         let mut fds = [PollFd::new(self.master.as_fd(), PollFlags::POLLIN)];
         // If timeout is invalid it just ends itself so should prob add some way of safely panicking
@@ -159,7 +158,7 @@ impl Pty {
         Ok(revents.contains(PollFlags::POLLIN))
     }
     /// This function assumes the user has not included
-    pub fn write(&mut self, cmds: Vec<&'static str>) -> std::io::Result<()> {
+    pub fn write(&mut self, cmds: &Vec<&'static str>) -> std::io::Result<()> {
         for cmd in cmds {
             let marker = self.marker;
             let payload = format!("{cmd}\nprintf '{marker} %d\\n' \"$?\"\n",);
