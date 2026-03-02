@@ -1,41 +1,27 @@
-use crossbeam::{channel, epoch::Owned};
+use nix::ioctl_write_ptr;
+use nix::sys::termios::{LocalFlags, SetArg, tcgetattr, tcsetattr};
 use nix::{
     fcntl::{FcntlArg::F_SETFL, OFlag, fcntl},
-    libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, TIOCSCTTY, dup2, getpid, setsid},
+    libc::{STDERR_FILENO, STDIN_FILENO, STDOUT_FILENO, dup2, getpid, setsid},
     poll::{PollFd, PollFlags, PollTimeout},
-    pty::{PtyMaster, Winsize, grantpt, openpty, posix_openpt, ptsname, unlockpt},
+    pty::{grantpt, posix_openpt, ptsname, unlockpt},
     sys::{
         stat::Mode,
         wait::{WaitPidFlag, waitpid},
     },
     unistd::{ForkResult, close, execvp, fork},
 };
+use std::io::{BufRead, BufReader};
 use std::{
     ffi::CString,
     fs::File,
     io::{Read, Write},
-    os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd, OwnedFd, RawFd},
+    os::fd::{AsFd, AsRawFd, BorrowedFd, FromRawFd, IntoRawFd},
     path::Path,
 };
-// this should run on another thread
+pub mod libca;
 
-pub fn example() {
-    let (tx, rx) = channel::bounded(10);
-    std::thread::spawn(move || {
-        loop {
-            tx.send(0u8);
-        }
-    });
-    if let Ok(data) = rx.try_recv() {
-
-        // The ideal solution for thread communication here is most llikely diff messaging
-        // The worker thread sends diffs essentially telling the main thread how to update it's state
-        // because its diffs the main thread doesnt have to re update every single thing and instead
-        // only focuses on a single item
-    }
-}
-use nix::sys::termios::{LocalFlags, SetArg, tcgetattr, tcsetattr};
-
+#[inline(always)]
 fn disable_echo(fd: BorrowedFd) -> nix::Result<()> {
     let mut termios = tcgetattr(fd)?;
     termios
@@ -80,17 +66,70 @@ impl MarkerMatcher {
         self.matched = 0;
     }
 }
+// Sent to specify the shell and additional parameters
+#[inline(always)]
+#[cfg(target_os = "linux")]
+pub fn available_shells() -> Vec<String> {
+    let file = File::open("/etc/shells").unwrap();
+    let reader = BufReader::new(file);
+    reader
+        .lines()
+        .filter_map(|line| {
+            let line = line.ok()?.trim().to_string();
+            if line.starts_with('#') || line.is_empty() {
+                None
+            } else {
+                Some(line)
+            }
+        })
+        .collect()
+}
+struct ShellConfig {
+    shell: String,
+    args: Vec<String>,
+}
+
+impl ShellConfig {
+    fn new(shell: String) -> Self {
+        Self {
+            shell,
+            args: Vec::new(),
+        }
+    }
+}
+impl Default for ShellConfig {
+    fn default() -> Self {
+        if let Ok(shell) = std::env::var("SHELL") {
+            println!("User preferred shell: {}", shell);
+            Self {
+                shell,
+                args: Vec::new(),
+            }
+        } else {
+            Self {
+                shell: "".to_string(),
+                args: Vec::new(),
+            }
+        }
+    }
+}
+struct PtyConfig {
+    shell: ShellConfig,
+    marker: String,
+}
 
 pub struct Pty {
     pub master: File,
     pub shell: &'static str,
     pub marker: &'static str,
 }
+
 impl Pty {
     // Adjust this to take a shell executable path
     // Ex: zsh, fish, bash, sh
 
-    pub fn attempt_create(marker: &'static str) -> nix::Result<Self> {
+    pub fn attempt_create(marker: &'static str, win_size: libc::winsize) -> nix::Result<Self> {
+        ioctl_write_ptr!(tiocswinsz, b'T', libc::TIOCSWINSZ, libc::winsize);
         let master_fd = posix_openpt(OFlag::O_RDWR)?;
         grantpt(&master_fd)?;
         unlockpt(&master_fd)?;
@@ -102,26 +141,32 @@ impl Pty {
         match unsafe { fork()? } {
             ForkResult::Child => unsafe {
                 setsid();
+                // let slave_fd =
+                //     nix::fcntl::open(Path::new(&slave_name), OFlag::O_RDWR, Mode::empty())?;
+                libc::ioctl(slave_fd.as_raw_fd(), libc::TIOCSCTTY, 0);
                 // Connects the slave to the standard streams of the slave_fd
                 dup2(slave_fd.as_raw_fd(), STDIN_FILENO);
                 dup2(slave_fd.as_raw_fd(), STDOUT_FILENO);
                 dup2(slave_fd.as_raw_fd(), STDERR_FILENO);
+                // tiocswinsz(slave_fd.as_raw_fd(), &win_size)?;
                 // The child should only own the slave and thus the master_fd is useless to it.
                 close(master_fd)?;
                 if slave_fd.as_raw_fd() > 2 {
                     // If slave_Fd is not one of the standard streams close it as it would be redundant
                     close(slave_fd)?;
                 }
+
                 let shell = CString::new("/bin/bash").unwrap();
-                execvp(
-                    &shell,
-                    &[
-                        shell.clone(),
-                        CString::new("--noprofile").unwrap(),
-                        CString::new("--norc").unwrap(),
-                        CString::new("-i").unwrap(),
-                    ],
-                )?;
+                let args = [
+                    shell.clone(),
+                    CString::new("--noprofile").unwrap(),
+                    CString::new("--norc").unwrap(),
+                    CString::new("-i").unwrap(),
+                    CString::new("-c").unwrap(),
+                    CString::new("export PS1=''; exec bash").unwrap(),
+                ];
+
+                execvp(&shell, &args)?;
                 //
                 // Tells the compiler that this branch will not ccontinue executing code
                 unreachable!();
@@ -158,7 +203,7 @@ impl Pty {
         Ok(revents.contains(PollFlags::POLLIN))
     }
     /// This function assumes the user has not included
-    pub fn write(&mut self, cmds: &Vec<&'static str>) -> std::io::Result<()> {
+    pub fn write(&mut self, cmds: &Vec<String>) -> std::io::Result<()> {
         for cmd in cmds {
             let marker = self.marker;
             let payload = format!("{cmd}\nprintf '{marker} %d\\n' \"$?\"\n",);
