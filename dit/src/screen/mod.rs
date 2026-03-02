@@ -1,270 +1,96 @@
-use std::{
-    collections::{HashMap, HashSet},
-    mem::offset_of,
-};
+use font_parser::TtfFont;
 
-use ash::vk;
-use winit::{
-    event::{ElementState, KeyEvent},
-    keyboard::KeyCode,
-};
-#[derive(Clone, Copy)]
-#[repr(C)]
-pub struct Vertex {
-    pos: [f32; 2],
-}
-impl Vertex {
-    fn binding_description() -> vk::VertexInputBindingDescription {
-        vk::VertexInputBindingDescription::default()
-            .binding(0)
-            .stride(size_of::<Vertex>() as _)
-            .input_rate(vk::VertexInputRate::VERTEX)
-    }
-    fn attribute_description() -> [vk::VertexInputAttributeDescription; 1] {
-        let position_desc = vk::VertexInputAttributeDescription::default()
-            .binding(0)
-            .location(0)
-            .format(vk::Format::R32G32_SFLOAT)
-            .offset(offset_of!(Vertex, pos) as _);
-        [position_desc]
-    }
-}
+use crate::ansii::{Handler, details::Attributes, utf_decoder::Utf8Decoder};
 
-struct CellMesh {}
-struct CellCache {
-    cache: HashMap<char, CellMesh>,
-}
-impl CellCache {
-    fn new() {}
+const BLINK_DURATION: f64 = 0.5;
+#[derive(Debug, Default, Clone)]
+pub struct Cursor {
+    pub row: usize,
+    pub col: usize,
+    pub visible: bool,
+    pub blinking: bool,
 }
 #[derive(Default)]
-pub struct Screen {
-    pub rows: Vec<Row>,
-    pub cursor: (usize, usize),
-    pub max_rows: usize,
-    pub max_cells: usize,
-    pub damaged: Vec<usize>,
+struct Cell {
+    ch: char,
+    cell_attr: Attributes,
 }
-impl Screen {
-    pub fn new(max_rows: usize, max_cells: usize) -> Self {
-        let mut rows = Vec::new();
-        for _ in 0..max_rows {
-            let mut cells = Vec::new();
-            for _ in 0..max_cells {
-                cells.push(Cell {
-                    glyph: Some('a'),
-                    fg: [0, 0, 0, 0],
-                    bg: [0, 0, 0, 0],
-                    flags: CellFlags::empty(),
-                });
-            }
-            rows.push(Row { cells });
-        }
-        Self {
-            rows,
-            cursor: (0, 0),
-            max_rows,
-            max_cells,
-            damaged: Vec::new(),
-        }
-    }
-    pub fn change(&mut self, key_event: &KeyEvent, pressed_keys: &HashSet<KeyCode>) {
-        if pressed_keys.contains(&KeyCode::Backspace) {
-            let row = self.rows.get(self.cursor.1).unwrap();
-            let mut cell = *row.cells.get(self.cursor.0).unwrap();
-            cell.delete_glyph();
-            self.damaged.push(self.cursor.1);
-            self.move_back();
-        }
-        if pressed_keys.contains(&KeyCode::ArrowUp) {
-            if !(self.cursor.1 == 0 || self.cursor.1 == self.max_rows) {
-                self.cursor.1 += 1;
-            }
-        }
-        if pressed_keys.contains(&KeyCode::ArrowDown) {
-            if !(self.cursor.1 == 0 || self.cursor.1 == self.max_rows) {
-                self.cursor.1 -= 1;
-            }
-        }
-        if pressed_keys.contains(&KeyCode::ArrowRight) {
-            if !(self.cursor.0 == 0 || self.cursor.0 == self.max_cells) {
-                self.cursor.0 += 1;
-            }
-        }
-        if pressed_keys.contains(&KeyCode::ArrowLeft) {
-            if !(self.cursor.0 == 0 || self.cursor.0 == self.max_cells) {
-                self.cursor.0 -= 1;
-            }
-        }
-        match &key_event.text {
-            None => {}
-            Some(str) => {
-                let chars: Vec<char> = str.chars().collect();
-                if chars.len() == 1 {
-                    let mut cell = *self.get_cell_mut();
-                    cell.set_glyph(chars[0]);
-                    self.damaged.push(self.cursor.1);
-                    self.move_ahead();
-                }
-                //most likely an escape character will implement later
-            }
-        }
-    }
-    fn move_ahead(&mut self) {
-        if self.cursor.0 + 1 < self.max_cells {
-            self.cursor.0 += 1;
-        } else if self.cursor.1 < self.max_rows {
-            self.cursor.1 += 1;
-        }
-    }
-    fn move_back(&mut self) {
-        if self.cursor.0 == 0 && self.cursor.1 > 0 {
-            self.cursor.1 -= 1;
-        } else {
-            self.cursor.0 -= 1;
-        }
-    }
-    fn get_cell_mut(&mut self) -> &mut Cell {
-        &mut self.rows[self.cursor.1].cells[self.cursor.0]
-    }
+struct ScreenConfig {
+    font_size: f64,
 }
-#[derive(Default, Clone, Copy)]
-pub struct Cell {
-    pub glyph: Option<char>,
-    pub fg: Color,
-    pub bg: Color,
-    pub flags: CellFlags,
-}
-impl Cell {
-    pub fn delete_glyph(&mut self) {
-        self.glyph = None;
-    }
-    pub fn set_glyph(&mut self, char: char) {
-        self.glyph = Some(char);
-    }
-}
-#[derive(Default, Clone)]
-pub struct Row {
+pub struct Screen<'a> {
     pub cells: Vec<Cell>,
+    pub cursor: Cursor,
+    pub row_size: usize,
+    pub col_size: usize,
+    pub accumulator: Utf8Decoder,
+    font: &'a TtfFont,
+    config: ScreenConfig,
 }
-bitflags::bitflags!(
-    #[derive(Default, Clone, Copy)]
-    pub struct CellFlags: u8 {
-        const ESCAPE = 0x0000;
-        const TAB = 0x0001;
-        const NEWLINE = 0x0002;
-    }
-);
-type Color = [u8; 4];
-
-//What the screen needs to accomplish
-//Handles a cursor that moves across the screen
-//Row cache to cache previous row text for faster reassembling of vertieces
-//Updating the vertex buffer
-//Cursor tracking along with highlighting text.
-
-enum CursorState {
-    Blinking,
-    Highlight,
-    Solid,
-    Blank,
-}
-struct Cursor {
-    x_limit: u32,
-    y_limit: u32,
-    x: u32,
-    y: u32,
-    cursor_state: CursorState,
-}
-impl Cursor {
-    fn new(x_limit: u32, y_limit: u32) -> Self {
+// An arbitrary character for monospace fonts
+const PLACEHOLDER: char = 'a';
+impl<'a> Screen<'a> {
+    fn new(row_size: usize, col_size: usize, font: &'a TtfFont, config: ScreenConfig) -> Self {
         Self {
-            x_limit,
-            y_limit,
-            x: 0,
-            y: 0,
-            cursor_state: CursorState::Solid,
+            cells: Vec::new(),
+            cursor: Cursor::default(),
+            row_size,
+            col_size,
+            accumulator: Utf8Decoder::new(),
+            font,
+            config,
         }
     }
-    //bounds updating
-    fn update_bounds(&mut self, x_limit: u32, y_limit: u32) {
-        self.x_limit = x_limit;
-        self.y_limit = y_limit;
-    }
-
-    //these are for text insertion.
-    //might be pointless to have
-    fn move_ahead(&mut self, spaces: u32) {
-        if self.x + spaces > self.x_limit {
-            //calculate the rows to move down;
-            let spaces_left = (self.x + spaces) - self.x_limit;
-            let rows_to_move = spaces_left % self.x_limit;
-            let cell_offset = spaces_left - (rows_to_move * self.x_limit);
-            self.move_down(rows_to_move);
-            self.x = cell_offset;
-        } else {
-            self.x += spaces;
+    fn construct_mesh(&mut self) {
+        let units_per_em = self.font.head.units_per_em;
+        let gid = self.font.lookup(PLACEHOLDER as u32).unwrap();
+        let cell_advance = self.font.hmtx.metric_for_glyph(gid as u16).advance_width;
+        let cell_ascent = self.font.hhea.ascent;
+        let cell_descent = self.font.hhea.descent;
+        let cell_height = cell_ascent - cell_descent + self.font.hhea.line_gap;
+        let 
+        for (index, cell) in self.cells.iter().enumerate() {
+            let col_pos = index % self.row_size;
+            let row_pos = (index - col_pos) / self.row_size;
         }
     }
-    fn move_back(&mut self, spaces: u32) {
-        //this means that the new cursor will be less than 0 or smth
-        if self.x < spaces {
-            let spaces_left = spaces - self.x;
-            let rows_to_move = spaces_left & self.x_limit;
-            let cell_offset = spaces_left - (rows_to_move * self.x_limit);
-            self.move_up(rows_to_move);
-            self.x = self.x_limit - cell_offset;
-        } else {
-            self.x -= spaces;
-        }
-    }
-    //When true is returned it means the screen has to move up with the specified distance;
-    fn move_up(&mut self, spaces: u32) -> (bool, u32) {
-        if self.y < spaces {
-            //means itll go back to 0
-            return (true, spaces - self.y);
-        } else {
-            self.y -= spaces;
-        }
-        (false, 0)
-    }
-    fn move_down(&mut self, spaces: u32) -> (bool, u32) {
-        //sends back a signal indicating if they have to extend the screen down
-        if self.y + spaces > self.y_limit {
-            let rows_to_move = (self.y + spaces) - self.y_limit;
-            return (true, rows_to_move);
-        } else {
-            self.y += spaces;
-        }
-        (false, 0)
-    }
-
-    //this is for when the user uses a mouse to move the cursor to somewhere else
-    //indicates if the op succeeded via a boolean
-    fn change_position(&mut self, new_x: u32, new_y: u32) -> bool {
-        if new_x > self.x_limit || new_y > self.y_limit {
-            return false;
-        } else {
-            self.x = new_x;
-            self.y = new_y;
-            return true;
-        }
-    }
-
-    fn change_state(&mut self, new_state: CursorState) {
-        self.cursor_state = new_state;
+    fn resize(&mut self, new_row: usize, new_col: usize) {
+        self.col_size = new_col;
+        self.row_size = new_row;
+        self.cells.resize_with(new_col * new_row, Default::default);
     }
 }
-enum Mode {
-    Insert,
-    Cursor,
-}
-struct Cursor2 {}
-impl Cursor2 {}
 
-struct Screen2 {
-    cursor: Cursor2,
-    mode: Mode,
-}
+impl<'a> Handler for Screen<'a> {
+    fn cursor_up(&mut self, n: u16) {
+        self.cursor.row = self.cursor.row.saturating_sub(n as usize);
+    }
+    fn cursor_down(&mut self, n: u16) {
+        let max_row = self.row_size - 1;
+        self.cursor.row = (self.cursor.row + n as usize).min(max_row);
+    }
+    fn cursor_right(&mut self, n: u16) {
+        let max_col = self.col_size - 1;
+        self.cursor.col = self.cursor.col.saturating_add(n as usize).min(max_col);
+    }
 
-impl Screen2 {}
+    fn cursor_left(&mut self, n: u16) {
+        self.cursor.col = self.cursor.col.saturating_sub(n as usize);
+    }
+    fn accumluate_utf8(&mut self, byte: u8) {
+        if let Some(ch) = self.accumulator.decode(byte) {
+            //
+            // writes the character to the visual buffer
+        }
+    }
+    fn bell() {}
+    fn char_attributes(&mut self, params: &smallvec::SmallVec<[u16; 8]>) {}
+    fn csi() {}
+
+    fn cursor_position(&mut self, new_x: u16, new_y: u16) {}
+    fn device_status_report(&mut self, param: u16) {}
+    fn execute(&mut self, ctl_seq: u8) {}
+    fn handle_osc(&mut self, u: &Vec<u8>) {}
+    fn next_line(&mut self) {}
+    fn previous_line(&mut self) {}
+}
