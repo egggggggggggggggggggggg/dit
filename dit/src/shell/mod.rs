@@ -203,12 +203,8 @@ impl Pty {
         Ok(revents.contains(PollFlags::POLLIN))
     }
     /// This function assumes the user has not included
-    pub fn write(&mut self, cmds: &Vec<String>) -> std::io::Result<()> {
-        for cmd in cmds {
-            let marker = self.marker;
-            let payload = format!("{cmd}\nprintf '{marker} %d\\n' \"$?\"\n",);
-            self.master.write_all(payload.as_bytes())?;
-        }
+    pub fn write(&mut self, input: &String) -> std::io::Result<()> {
+        self.master.write_all(input.as_bytes())?;
         Ok(())
     }
     /// user supplies their own buffer for reading the data into

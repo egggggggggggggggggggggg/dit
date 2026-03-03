@@ -11,7 +11,8 @@ pub mod shader;
 mod swapchain;
 mod texture;
 mod utils;
-mod vkapp;
+pub mod vkapp;
+
 // mod vkcore;
 use ash::vk;
 use atlas_gen::{allocator::ShelfAllocator, atlas::Atlas};

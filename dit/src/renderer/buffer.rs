@@ -5,7 +5,10 @@ use std::{
 };
 
 use crate::renderer::*;
-use ash::{Device, vk};
+use ash::{
+    Device,
+    vk::{self, BufferCopy},
+};
 pub fn create_buffer(
     vk_context: &VkContext,
     size: vk::DeviceSize,
@@ -36,6 +39,7 @@ pub fn create_buffer(
     unsafe { device.bind_buffer_memory(buffer, memory, 0).unwrap() };
     (buffer, memory, mem_requirements.size)
 }
+
 pub fn copy_buffer(
     device: &Device,
     command_pool: vk::CommandPool,
@@ -283,10 +287,57 @@ impl DynamicBuffer {
             0,
         );
     }
-    pub fn write<A, T: Copy + Debug>(&mut self, offset: usize, data: &[T]) {
-        
+    pub fn write<A, T: Copy + Debug>(
+        &mut self,
+        vk_context: &VkContext,
+        offset: u64,
+        data: &[T],
+        command_pool: vk::CommandPool,
+        transfer_queue: vk::Queue,
+    ) {
+        let device = vk_context.device();
+        unsafe {
+            let mut align = ash::util::Align::new(
+                self.data_ptr,
+                align_of::<A>() as _,
+                self.staging.memory_size,
+            );
+            align.copy_from_slice(data);
+        }
+        copy_buffer(
+            device,
+            command_pool,
+            transfer_queue,
+            self.staging.buffer,
+            self.device.buffer,
+            size_of_val(data) as vk::DeviceSize,
+            offset,
+            offset,
+        );
     }
-    fn resize() {}
+    pub fn write_into_staging<A, T: Copy + Debug>(&mut self, data: &[T], offset: u64) {
+        unsafe {
+            let data_ptr = self.data_ptr.add(offset as usize);
+            let mut align =
+                ash::util::Align::new(data_ptr, align_of::<A>() as _, self.staging.memory_size);
+            align.copy_from_slice(data);
+        }
+    }
+    //The renderer should be the only thing that ever calls the internals. The application itself
+    //can call the methods in the renderer but the renderer = internals
+    /// Copies from the staging buffer to the device buffer
+    pub fn transfer_to_device(
+        &mut self,
+        device: &Device,
+        command_pool: vk::CommandPool,
+        transfer_queue: vk::Queue,
+        regions: &[vk::BufferCopy],
+    ) {
+        execute_one_time_commands(device, command_pool, transfer_queue, |buffer| unsafe {
+            device.cmd_copy_buffer(buffer, self.staging.buffer, self.device.buffer, regions);
+        });
+    }
+
     pub fn destroy(&self, device: &Device) {
         unsafe {
             device.unmap_memory(self.device.memory);
@@ -295,6 +346,11 @@ impl DynamicBuffer {
             device.free_memory(self.staging.memory, None);
             device.free_memory(self.device.memory, None);
         }
+    }
+    pub fn resize(&mut self) {
+        //Creates a new instance of DynamicBuffer
+        //Allocates it with the respective space and copies the old data into there
+        //If the new size is smaller than the old size the data will be dropped
     }
 }
 

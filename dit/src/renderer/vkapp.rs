@@ -213,29 +213,7 @@ impl VkApplication {
     pub fn wait_gpu_idle(&self) {
         unsafe { self.vk_context.device().device_wait_idle().unwrap() };
     }
-    fn load_model() -> (Vec<Vertex>, Vec<u32>) {
-        let vertices = [
-            Vertex {
-                pos: [-1.0, -1.0],
-                uv: [0.0, 0.0],
-            },
-            Vertex {
-                pos: [-1.0, 1.0],
-                uv: [0.0, 1.0],
-            },
-            Vertex {
-                pos: [1.0, 1.0],
-                uv: [1.0, 1.0],
-            },
-            Vertex {
-                pos: [1.0, -1.0],
-                uv: [1.0, 0.0],
-            },
-        ]
-        .to_vec();
-        let indices = [0u32, 1, 2, 2, 3, 0].to_vec();
-        (vertices, indices)
-    }
+
     pub fn draw_frame(&mut self) -> bool {
         let sync_objects = self.in_flight_frames.next().unwrap();
         let image_available_semaphore = sync_objects.image_available_semaphore;

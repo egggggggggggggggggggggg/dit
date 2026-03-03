@@ -1,4 +1,4 @@
-use std::{collections::HashSet, ops::Range};
+use std::collections::HashSet;
 
 use atlas_gen::{allocator::ShelfAllocator, atlas::Atlas};
 use font_parser::TtfFont;
@@ -17,10 +17,17 @@ pub struct Cursor {
     pub visible: bool,
     pub blinking: bool,
 }
-#[derive(Default)]
 struct Cell {
     ch: char,
     cell_attr: Attributes,
+}
+impl Default for Cell {
+    fn default() -> Self {
+        Self {
+            ch: ' ',
+            cell_attr: Attributes::default(),
+        }
+    }
 }
 struct ScreenConfig {
     font_size: f64,
@@ -60,6 +67,46 @@ impl CellMetrics {
         }
     }
 }
+// defines a buffer write and sees if
+#[derive(Debug, Clone)]
+pub struct Range {
+    pub start: usize,
+    pub end: usize, // exclusive
+}
+fn merge_ranges(mut ranges: Vec<Range>) -> Vec<Range> {
+    if ranges.is_empty() {
+        return vec![];
+    }
+
+    // Sort by start
+    ranges.sort_by_key(|r| r.start);
+
+    let mut merged = Vec::new();
+    let mut current = ranges[0].clone();
+
+    for range in ranges.into_iter().skip(1) {
+        // Merge if overlapping OR contiguous
+        if range.start <= current.end + 1 {
+            current.end = current.end.max(range.end);
+        } else {
+            merged.push(current);
+            current = range;
+        }
+    }
+
+    merged.push(current);
+    merged
+}
+impl From<Range> for ash::vk::BufferCopy {
+    fn from(value: Range) -> Self {
+        Self {
+            dst_offset: value.start as u64,
+            src_offset: value.start as u64,
+            size: (value.end - value.start) as u64,
+        }
+    }
+}
+
 pub struct Screen {
     pub cells: Vec<Cell>,
     pub cursor: Cursor,
@@ -68,9 +115,10 @@ pub struct Screen {
     pub accumulator: Utf8Decoder,
     font: TtfFont,
     cell_metrics: CellMetrics,
+    // theese sohuld be sorted
     dirty_cells: HashSet<usize>,
     atlas: Atlas<char, Rgb<u8>, ShelfAllocator>,
-    mesh: Mesh,
+    pub mesh: Mesh,
 }
 // An arbitrary character for monospace fonts
 const PLACEHOLDER: char = 'a';
@@ -117,6 +165,8 @@ impl Screen {
         let (new_row_size, new_col_size) = calculate_dims(logical_screen_size, &self.cell_metrics);
         self.col_size = new_col_size;
         self.row_size = new_row_size;
+        self.cells
+            .resize_with(new_col_size * new_row_size, Default::default);
         self.construct_mesh();
         // must reconstruct the mesh from scratch
     }
@@ -130,9 +180,7 @@ impl Screen {
             let row_start = row * self.col_size;
             let row_slice = &self.cells[row_start..row_start + self.row_size];
             for cell in row_slice {
-                if cell.ch == ' ' {
-                    // empty
-                } else {
+                if cell.ch != ' ' {
                     let gid = self.font.lookup(cell.ch as u32).unwrap();
                     let glyf = self
                         .font
@@ -147,11 +195,7 @@ impl Screen {
                     let y0 = baseline_y + glyf.y_max as f32 * self.cell_metrics.scale;
                     let x1 = baseline_x + glyf.x_max as f32 * self.cell_metrics.scale;
                     let y1 = baseline_y + glyf.y_min as f32 * self.cell_metrics.scale;
-                    let ([u0, v0], [u1, v1]) = if cell.ch == ' ' {
-                        ([0.0, 0.0], [0.0, 0.0])
-                    } else {
-                        self.atlas.get_uv(cell.ch)
-                    };
+                    let ([u0, v0], [u1, v1]) = self.atlas.get_uv(cell.ch);
                     vertices.push(Vertex {
                         pos: [x0, y0],
                         uv: [u0, v0],
@@ -184,11 +228,19 @@ impl Screen {
         self.mesh.indices = indices;
         self.mesh.vertices = vertices;
     }
-    fn update_mesh(&mut self, vertex_buffer: &mut DynamicBuffer) {
+    // This is called by the update method in the application
+    // Returns a vec of ranges of memory to be updated
+    // For reconstruction of the entire mesh that just calls construct mesh
+    // When the app calls resize it must then use the
+    // mesh stored in screen instead of relying on diffs
+    pub fn update_mesh(&mut self) -> Option<Vec<Range>> {
         if self.dirty_cells.is_empty() {
-            return;
+            return None;
         }
-        // Theoretically the index buffer shouldn't need updating unless
+        let mut ranges = Vec::new();
+
+        // Theoretically the index buffer shouldn't need updating unless its rezising at which point
+        // Just remake the whole mesh
         for index in &self.dirty_cells {
             if let Some(cell) = self.cells.get(*index) {
                 // identify the position inthe ver
@@ -238,13 +290,16 @@ impl Screen {
                 self.mesh.vertices[init_index + 3] = vx3;
                 let vertex_size = size_of::<Vertex>();
                 // Calculates the offset in buffer memory
-                let offset_write_index = vertex_size * 4 * index;
-                vertex_buffer.write::<u32, _>(
-                    offset_write_index,
-                    &self.mesh.vertices[init_index..init_index + 4],
-                );
+                // to find the proper memory address multiple the range by the offset_write_indexg
+                let offset_write_index = vertex_size * init_index;
+                // this is for the
+                ranges.push(Range {
+                    start: init_index,
+                    end: init_index + 4,
+                });
             }
         }
+        Some(ranges)
     }
 }
 
