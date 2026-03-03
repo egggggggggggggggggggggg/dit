@@ -1,4 +1,4 @@
-mod buffer;
+pub mod buffer;
 mod command;
 mod context;
 mod debug;
@@ -7,7 +7,7 @@ mod pipeline;
 mod queue;
 mod renderpass;
 mod resources;
-mod shader;
+pub mod shader;
 mod swapchain;
 mod texture;
 mod utils;
@@ -33,7 +33,7 @@ use texture::*;
 use utils::*;
 // use vkcore::*;
 
-use std::{cell, collections::HashSet, time::Instant};
+use std::{collections::HashSet, time::Instant};
 use winit::{
     application::ApplicationHandler,
     dpi::PhysicalSize,
@@ -296,10 +296,10 @@ fn x_ndc(x: f32, screen_w: f32) -> f32 {
 fn y_ndc(y: f32, screen_h: f32) -> f32 {
     1.0 - (y / screen_h) * 2.0
 }
-#[derive(Clone)]
+#[derive(Clone, Default)]
 pub struct Mesh {
-    vertices: Vec<Vertex>,
-    indices: Vec<u32>,
+    pub vertices: Vec<Vertex>,
+    pub indices: Vec<u32>,
 }
 
 #[inline(always)]

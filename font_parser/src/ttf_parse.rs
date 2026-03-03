@@ -21,6 +21,7 @@ pub struct TtfFont {
     pub glyf: Glyf,
     pub hhea: Hhea,
     pub hmtx: Hmtx,
+    pub post: Post,
 }
 
 impl TtfFont {
@@ -44,6 +45,7 @@ impl TtfFont {
         let hmtx = Hmtx::parse(&data, &tables, hhea.number_of_long_hor_metrics, num_glyphs)?;
         let cmap = parse_cmap(&data, &tables)?;
         let glyf = Glyf::new(offsets, &tables);
+        let post = Post::parse(&data, &tables)?;
         Ok(Self {
             data,
             tables,
@@ -53,6 +55,7 @@ impl TtfFont {
             glyf,
             hhea,
             hmtx,
+            post,
         })
     }
     pub fn parse_required() {}

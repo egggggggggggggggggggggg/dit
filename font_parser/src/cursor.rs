@@ -50,10 +50,10 @@ impl<'a> Cursor<'a> {
     pub fn read_i16(&mut self) -> Result<i16, ReadError> {
         Ok(i16::from_be_bytes(self.read_bytes()?))
     }
-    // #[inline(always)]
-    // pub fn read_i32(&mut self) -> Result<i32, ReadError> {
-    //     Ok(i32::from_be_bytes(self.read_bytes()?))
-    // }
+    #[inline(always)]
+    pub fn read_i32(&mut self) -> Result<i32, ReadError> {
+        Ok(i32::from_be_bytes(self.read_bytes()?))
+    }
     #[inline(always)]
     pub fn read_i64(&mut self) -> Result<i64, ReadError> {
         Ok(i64::from_be_bytes(self.read_bytes()?))

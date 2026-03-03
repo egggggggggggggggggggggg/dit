@@ -283,6 +283,9 @@ impl DynamicBuffer {
             0,
         );
     }
+    pub fn write<A, T: Copy + Debug>(&mut self, offset: usize, data: &[T]) {
+        
+    }
     fn resize() {}
     pub fn destroy(&self, device: &Device) {
         unsafe {
