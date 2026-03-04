@@ -27,7 +27,7 @@ use winit::{
 
 use crate::{
     ansii::{Handler, Parser, details::Attributes, utf_decoder::Utf8Decoder},
-    renderer::vkapp::VkApplication,
+    renderer::{shader::Vertex, vkapp::VkApplication},
     screen::Screen,
     shell::{MarkerMatcher, Pty},
 };
@@ -50,15 +50,16 @@ const HEIGHT: u32 = 1080;
 impl Application {
     fn update(&mut self) {
         let screen = self.screen.as_mut().unwrap();
-        if self.pressed_keys.contains(&KeyCode::ControlLeft) {
-            // handle key events
-        }
         if self.last_blink.elapsed().as_secs_f64() <= 0.5 {
             screen.cursor.visible = true;
         }
         // only write if the input buffer is not empty
         if !self.input_buffer.is_empty() {
+            println!("input buffer wasnt empty writing to the thing");
             self.pty.write(&self.input_buffer).unwrap();
+            for char in self.input_buffer.chars() {
+                screen.write_char(char);
+            }
             self.input_buffer.clear();
         }
         if self.pty.poll(0).unwrap() {
@@ -76,15 +77,19 @@ impl Application {
         }
         // at the end of the poll check if the mesh needs to be reupdated
         // if yes do so
-        if let Some(diffs) = screen.update_mesh() {
+        let vertex_size = size_of::<Vertex>();
+        if let Some(mut diffs) = screen.update_mesh() {
             //convert the diffs to vk::CopyBuffers
             let mut regions = Vec::new();
             let vk_app = self.vk_app.as_mut().unwrap();
-            for diff in &diffs {
+            for diff in &mut diffs {
                 vk_app.vertex_buffer.write_into_staging::<u32, _>(
                     &screen.mesh.vertices[diff.start..diff.end],
-                    diff.start as u64,
+                    (diff.start * vertex_size) as u64,
                 );
+                // Range/diff operates on just the struct and not teh actual count of bytes
+                diff.start = diff.start * vertex_size;
+                diff.end = diff.end * vertex_size;
                 let region = ash::vk::BufferCopy::from(diff.clone());
                 regions.push(region);
             }
@@ -119,7 +124,7 @@ impl Application {
 // will change it later
 const CROSS_THRESHOLD: f64 = 3.0;
 fn preload_latin(font: &mut TtfFont, texture_atlas: &mut Atlas<char, Rgb<u8>, ShelfAllocator>) {
-    let target_font_px = 12;
+    let target_font_px = 64;
     let dmax_px = 1.0;
     for ch in '!'..'~' {
         let mut seed = 0;
@@ -211,7 +216,7 @@ impl ApplicationHandler for Application {
             Atlas::new(1024, 1024, atlas_allocator, 4, false);
         preload_latin(&mut font, &mut texture_atlas);
         let mut screen = Screen::new(
-            12.0,
+            24.0,
             font,
             texture_atlas,
             LogicalSize::from_physical(window_size, window.scale_factor()),

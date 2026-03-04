@@ -20,6 +20,6 @@ void main() {
    float sd = median(msd.r, msd.g, msd.b);
    float screenPxDistance = screenPxRange() * (sd - 0.5);
    float opacity = clamp(screenPxDistance + 0.5, 0.0, 1.0);
-   // uFragColor = mix(bgColor, fgColor, opacity);
-   uFragColor = vec4(1.0, 1.0, 1.0, 1.0);
+   uFragColor = mix(bgColor, fgColor, opacity);
+   // uFragColor = vec4(1.0, 0.0, 0.0, 1.0);
 }

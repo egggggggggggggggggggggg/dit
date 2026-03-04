@@ -360,8 +360,8 @@ impl Screen {
                 self.mesh.vertices[init_index + 1] = vx1;
                 self.mesh.vertices[init_index + 2] = vx2;
                 self.mesh.vertices[init_index + 3] = vx3;
-                println!("uvs: {}, {}, {}, {}", u0, v0, u1, v1);
 
+                println!("vertices: {:?}, {:?}, {:?}, {:?}", vx0, vx1, vx2, vx3);
                 ranges.push(Range {
                     start: init_index,
                     end: init_index + 4,
