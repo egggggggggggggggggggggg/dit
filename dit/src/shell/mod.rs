@@ -204,6 +204,7 @@ impl Pty {
     }
     /// This function assumes the user has not included
     pub fn write(&mut self, input: &String) -> std::io::Result<()> {
+        println!("writing this string: {}", input);
         self.master.write_all(input.as_bytes())?;
         Ok(())
     }

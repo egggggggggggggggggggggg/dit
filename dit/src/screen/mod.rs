@@ -17,9 +17,10 @@ pub struct Cursor {
     pub visible: bool,
     pub blinking: bool,
 }
-struct Cell {
-    ch: char,
-    cell_attr: Attributes,
+#[derive(Clone)]
+pub struct Cell {
+    pub ch: char,
+    pub cell_attr: Attributes,
 }
 impl Default for Cell {
     fn default() -> Self {
@@ -32,6 +33,7 @@ impl Default for Cell {
 struct ScreenConfig {
     font_size: f64,
 }
+#[derive(Debug)]
 pub struct CellMetrics {
     pub width: f32,
     pub height: f32,
@@ -106,7 +108,6 @@ impl From<Range> for ash::vk::BufferCopy {
         }
     }
 }
-
 pub struct Screen {
     pub cells: Vec<Cell>,
     pub cursor: Cursor,
@@ -136,16 +137,22 @@ impl Screen {
     //via a ubo that specifies properties sorta like how instancing works
     // eg positioin and then the specific inherent properties
     // issue is how to write the shader to allow for this
-    fn new(
+    pub fn new(
         font_size: f32,
         font: TtfFont,
         texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator>,
         logical_screen_size: winit::dpi::LogicalSize<f32>,
     ) -> Self {
+        println!("logical size: {:?}", logical_screen_size);
         let cell_metrics = CellMetrics::new(font_size, &font);
         let (row_size, col_size) = calculate_dims(logical_screen_size, &cell_metrics);
+        println!(
+            "cell_metrics: {:?}, row_size: {}, col_size: {}",
+            cell_metrics, row_size, col_size
+        );
+        let cells = vec![Cell::default(); row_size * col_size];
         Self {
-            cells: Vec::new(),
+            cells,
             cursor: Cursor::default(),
             row_size,
             col_size,
@@ -157,7 +164,11 @@ impl Screen {
             mesh: Mesh::default(),
         }
     }
-    fn resize(&mut self, new_font_size: f32, logical_screen_size: winit::dpi::LogicalSize<f32>) {
+    pub fn resize(
+        &mut self,
+        new_font_size: f32,
+        logical_screen_size: winit::dpi::LogicalSize<f32>,
+    ) {
         if new_font_size != self.cell_metrics.font_size {
             // recalculate cell_metrics if font_size changes
             self.cell_metrics = CellMetrics::new(new_font_size, &self.font)
@@ -170,7 +181,7 @@ impl Screen {
         self.construct_mesh();
         // must reconstruct the mesh from scratch
     }
-    fn construct_mesh(&mut self) {
+    pub fn construct_mesh(&mut self) {
         let mut vertices = Vec::new();
         let mut indices = Vec::new();
         let mut index_offset = 0u32;
@@ -180,51 +191,111 @@ impl Screen {
             let row_start = row * self.col_size;
             let row_slice = &self.cells[row_start..row_start + self.row_size];
             for cell in row_slice {
-                if cell.ch != ' ' {
-                    let gid = self.font.lookup(cell.ch as u32).unwrap();
-                    let glyf = self
-                        .font
-                        .parse_gid(gid as u16)
-                        .unwrap()
-                        .clone()
-                        .unwrap()
-                        .get_header();
-                    let baseline_x = x_cell;
-                    let baseline_y = y_cell + self.cell_metrics.baseline;
-                    let x0 = baseline_x + glyf.x_min as f32 * self.cell_metrics.scale;
-                    let y0 = baseline_y + glyf.y_max as f32 * self.cell_metrics.scale;
-                    let x1 = baseline_x + glyf.x_max as f32 * self.cell_metrics.scale;
-                    let y1 = baseline_y + glyf.y_min as f32 * self.cell_metrics.scale;
-                    let ([u0, v0], [u1, v1]) = self.atlas.get_uv(cell.ch);
-                    vertices.push(Vertex {
-                        pos: [x0, y0],
-                        uv: [u0, v0],
-                    });
-                    vertices.push(Vertex {
-                        pos: [x0, y1],
-                        uv: [u0, v1],
-                    });
-                    vertices.push(Vertex {
-                        pos: [x1, y1],
-                        uv: [u1, v1],
-                    });
-                    vertices.push(Vertex {
-                        pos: [x1, y0],
-                        uv: [u1, v0],
-                    });
-                    indices.push(index_offset + 0);
-                    indices.push(index_offset + 1);
-                    indices.push(index_offset + 2);
-                    indices.push(index_offset + 2);
-                    indices.push(index_offset + 3);
-                    indices.push(index_offset + 0);
-                    index_offset += 4;
-                    x_cell += self.cell_metrics.width;
+                let baseline_x = x_cell;
+                let baseline_y = y_cell + self.cell_metrics.baseline;
+
+                let x0;
+                let y0;
+                let x1;
+                let y1;
+
+                let (u0, v0, u1, v1);
+
+                if cell.ch.is_whitespace() {
+                    // Use full cell bounds for whitespace quad
+                    x0 = baseline_x;
+                    y0 = y_cell;
+                    x1 = baseline_x + self.cell_metrics.width;
+                    y1 = y_cell + self.cell_metrics.height;
+
+                    // Zero UVs
+                    u0 = 0.0;
+                    v0 = 0.0;
+                    u1 = 0.0;
+                    v1 = 0.0;
+                } else {
+                    // Safe glyph lookup (fallback to empty quad if missing)
+                    if let Some(gid) = self.font.lookup(cell.ch as u32) {
+                        if let Ok(Some(glyph)) = self.font.parse_gid(gid as u16) {
+                            let header = glyph.get_header();
+
+                            x0 = baseline_x + header.x_min as f32 * self.cell_metrics.scale;
+                            y0 = baseline_y + header.y_max as f32 * self.cell_metrics.scale;
+                            x1 = baseline_x + header.x_max as f32 * self.cell_metrics.scale;
+                            y1 = baseline_y + header.y_min as f32 * self.cell_metrics.scale;
+
+                            if let ([uu0, vv0], [uu1, vv1]) = self.atlas.get_uv(cell.ch) {
+                                u0 = uu0;
+                                v0 = vv0;
+                                u1 = uu1;
+                                v1 = vv1;
+                            } else {
+                                // Glyph exists but no atlas entry
+                                u0 = 0.0;
+                                v0 = 0.0;
+                                u1 = 0.0;
+                                v1 = 0.0;
+                            }
+                        } else {
+                            // Failed parse → fallback to empty quad
+                            x0 = baseline_x;
+                            y0 = y_cell;
+                            x1 = baseline_x + self.cell_metrics.width;
+                            y1 = y_cell + self.cell_metrics.height;
+
+                            u0 = 0.0;
+                            v0 = 0.0;
+                            u1 = 0.0;
+                            v1 = 0.0;
+                        }
+                    } else {
+                        // Missing glyph → fallback to empty quad
+                        x0 = baseline_x;
+                        y0 = y_cell;
+                        x1 = baseline_x + self.cell_metrics.width;
+                        y1 = y_cell + self.cell_metrics.height;
+
+                        u0 = 0.0;
+                        v0 = 0.0;
+                        u1 = 0.0;
+                        v1 = 0.0;
+                    }
                 }
-                y_cell += self.cell_metrics.height;
-                // row, col directly available
+
+                vertices.push(Vertex {
+                    pos: [x0, y0],
+                    uv: [u0, v0],
+                });
+                vertices.push(Vertex {
+                    pos: [x0, y1],
+                    uv: [u0, v1],
+                });
+                vertices.push(Vertex {
+                    pos: [x1, y1],
+                    uv: [u1, v1],
+                });
+                vertices.push(Vertex {
+                    pos: [x1, y0],
+                    uv: [u1, v0],
+                });
+                println!("vertices: {}, {}, {}, {}", x0, y0, x1, y1);
+                println!("uvs: {}, {}, {}, {}", u0, v0, u1, v1);
+                indices.extend_from_slice(&[
+                    index_offset,
+                    index_offset + 1,
+                    index_offset + 2,
+                    index_offset + 2,
+                    index_offset + 3,
+                    index_offset,
+                ]);
+
+                index_offset += 4;
+                x_cell += self.cell_metrics.width;
             }
+
+            y_cell += self.cell_metrics.height;
         }
+        println!("vertices: {}, indices: {}", vertices.len(), indices.len());
         self.mesh.indices = indices;
         self.mesh.vertices = vertices;
     }
@@ -237,6 +308,7 @@ impl Screen {
         if self.dirty_cells.is_empty() {
             return None;
         }
+        println!("there are {} dirty cells to update", self.dirty_cells.len());
         let mut ranges = Vec::new();
 
         // Theoretically the index buffer shouldn't need updating unless its rezising at which point
@@ -288,18 +360,48 @@ impl Screen {
                 self.mesh.vertices[init_index + 1] = vx1;
                 self.mesh.vertices[init_index + 2] = vx2;
                 self.mesh.vertices[init_index + 3] = vx3;
-                let vertex_size = size_of::<Vertex>();
-                // Calculates the offset in buffer memory
-                // to find the proper memory address multiple the range by the offset_write_indexg
-                let offset_write_index = vertex_size * init_index;
-                // this is for the
+                println!("uvs: {}, {}, {}, {}", u0, v0, u1, v1);
+
                 ranges.push(Range {
                     start: init_index,
                     end: init_index + 4,
                 });
             }
         }
+        self.dirty_cells.drain();
         Some(ranges)
+    }
+    pub fn write_char(&mut self, ch: char) {
+        let cursor = &self.cursor;
+        let index = cursor.row * self.row_size + cursor.col;
+        self.cells[index].ch = ch;
+        self.dirty_cells.insert(index);
+        self.advance_cursor(1);
+    }
+    // advance the cursor by a given amount
+    // will go to a new row if the first row is complete
+    pub fn advance_cursor(&mut self, n: usize) {
+        let total_cols = self.row_size;
+        let total_rows = self.col_size;
+
+        // Flatten current position into linear index
+        let linear = self.cursor.row * total_cols + self.cursor.col;
+
+        // Advance
+        let new_linear = linear + n;
+
+        // Compute new row/col
+        let mut new_row = new_linear / total_cols;
+        let mut new_col = new_linear % total_cols;
+
+        // Clamp to grid bounds (stay on last cell if overflow)
+        if new_row >= total_rows {
+            new_row = total_rows - 1;
+            new_col = total_cols - 1;
+        }
+
+        self.cursor.row = new_row;
+        self.cursor.col = new_col;
     }
 }
 
@@ -321,8 +423,7 @@ impl Handler for Screen {
     }
     fn accumluate_utf8(&mut self, byte: u8) {
         if let Some(ch) = self.accumulator.decode(byte) {
-            //
-            // writes the character to the visual buffer
+            self.write_char(ch);
         }
     }
     fn bell() {}

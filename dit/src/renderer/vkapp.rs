@@ -127,6 +127,11 @@ impl VkApplication {
 
         let texture = create_texture_image(&vk_context, command_pool, graphics_queue);
         let (vertices, indices) = (&mesh.vertices, &mesh.indices);
+        println!(
+            "vertex_length: {}, index_length: {}",
+            vertices.len(),
+            indices.len()
+        );
         let mut dynamic_vertex_buffer = DynamicBuffer::new(
             (byte_size(&vertices) * 4) as vk::DeviceSize,
             &vk_context,
@@ -283,33 +288,13 @@ impl VkApplication {
         }
         false
     }
-    pub fn test_dynamic_buffer(&mut self) {
-        let vertices = vec![
-            Vertex {
-                pos: [-10.0, -3.0],
-                uv: [-2.0, -2.0],
-            },
-            Vertex {
-                pos: [-8.0, 12.0],
-                uv: [-1.0, 3.0],
-            },
-            Vertex {
-                pos: [6.0, 9.0],
-                uv: [4.0, 2.0],
-            },
-            Vertex {
-                pos: [12.0, -6.0],
-                uv: [5.0, -1.0],
-            },
-        ];
-
-        self.vertex_buffer.full_copy::<u32, _>(
-            &self.vk_context,
+    pub fn write_to_device(&mut self, regions: &[vk::BufferCopy]) {
+        self.vertex_buffer.transfer_to_device(
+            self.vk_context.device(),
             self.command_pool,
             self.graphics_queue,
-            &vertices,
+            regions,
         );
-        //acquire the buffer
     }
     fn cleanup_swapchain(&mut self) {
         let device = self.vk_context.device();

@@ -1,6 +1,6 @@
-use std::{collections::HashMap, hash::Hash};
-use image::{ImageBuffer, Pixel};
 use crate::allocator::AtlasAllocator;
+use image::{ImageBuffer, Pixel};
+use std::{collections::HashMap, fmt::Debug, hash::Hash};
 
 #[derive(Debug, Clone, Copy)]
 pub struct AtlasEntry {
@@ -40,7 +40,7 @@ where
 }
 impl<T, P, A> Atlas<T, P, A>
 where
-    T: Hash + Eq,
+    T: Hash + Eq + Debug,
     P: Pixel<Subpixel = u8>,
     A: AtlasAllocator,
 {
@@ -124,7 +124,13 @@ where
         if let Some(uv) = self.uv_table.get(&key) {
             return *uv;
         } else {
-            let uv = self.table.get(&key).unwrap().uv(self.width, self.height);
+            println!("key: {:?}", key);
+            let uv = if let Some(entry) = self.table.get(&key) {
+                println!("there was a valid entry for the character {:?}", entry);
+                entry.uv(self.width, self.height)
+            } else {
+                ([0.0, 0.0], [0.0, 0.0])
+            };
             self.uv_table.insert(key, uv);
             uv
         }

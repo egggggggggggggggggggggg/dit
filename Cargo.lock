@@ -513,6 +513,7 @@ dependencies = [
  "font_parser",
  "image",
  "libc",
+ "math",
  "nix",
  "rand 0.9.2",
  "smallvec",
