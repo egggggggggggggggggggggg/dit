@@ -43,12 +43,14 @@ pub struct Application {
     pty: Pty,
     parser: Parser,
     vk_app: Option<VkApplication>,
+    frame_count: u32,
 }
 const WIDTH: u32 = 1920;
 const HEIGHT: u32 = 1080;
 
 impl Application {
     fn update(&mut self) {
+        self.frame_count += 1;
         let screen = self.screen.as_mut().unwrap();
         if self.last_blink.elapsed().as_secs_f64() <= 0.5 {
             screen.cursor.visible = true;
@@ -117,6 +119,7 @@ impl Application {
             parser: Parser::new(),
             vk_app: None,
             pressed_keys: HashSet::new(),
+            frame_count: 0,
         }
     }
 }
@@ -236,9 +239,9 @@ impl ApplicationHandler for Application {
     ) {
         match event {
             WindowEvent::RedrawRequested => {
-                let now = Instant::now();
-                let dt = now - self.last_frame;
-                self.last_frame = now;
+                // let now = Instant::now();
+                // let dt = now - self.last_frame;
+                // self.last_frame = now;
                 self.update();
                 let app = self.vk_app.as_mut().unwrap();
                 let window = self.window.as_ref().unwrap();
@@ -287,6 +290,11 @@ impl ApplicationHandler for Application {
         }
     }
     fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+        if self.last_frame.elapsed().as_secs_f32() >= 1.0 {
+            println!("frame_count : {}", self.frame_count);
+            self.frame_count = 0;
+            self.last_frame = Instant::now();
+        }
         self.window.as_mut().unwrap().request_redraw();
     }
     fn device_event(

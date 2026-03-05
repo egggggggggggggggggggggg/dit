@@ -75,10 +75,10 @@ impl SwapchainSupportDetails {
     fn choose_swapchain_surface_present_mode(
         available_present_modes: &[vk::PresentModeKHR],
     ) -> vk::PresentModeKHR {
-        if available_present_modes.contains(&vk::PresentModeKHR::MAILBOX) {
-            vk::PresentModeKHR::MAILBOX
-        } else if available_present_modes.contains(&vk::PresentModeKHR::FIFO) {
+        if available_present_modes.contains(&vk::PresentModeKHR::FIFO) {
             vk::PresentModeKHR::FIFO
+        } else if available_present_modes.contains(&vk::PresentModeKHR::FIFO_RELAXED) {
+            vk::PresentModeKHR::FIFO_RELAXED
         } else {
             vk::PresentModeKHR::IMMEDIATE
         }
