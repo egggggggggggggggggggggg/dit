@@ -5,7 +5,7 @@ use atlas_gen::{
 };
 use font_parser::TtfFont;
 use image::{ImageBuffer, Rgb};
-use math::{bezier::Bounds, calc::Range, lalg::Vec2, shape::Shape};
+use math::lalg::Vec2;
 
 fn main() {
     entry();

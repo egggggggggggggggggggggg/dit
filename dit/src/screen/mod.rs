@@ -12,7 +12,7 @@ use crate::{
 const BLINK_DURATION: f64 = 0.5;
 #[derive(Debug, Default, Clone)]
 pub struct Cursor {
-    pub row: usize,
+    pub y: usize,
     pub col: usize,
     pub visible: bool,
     pub blinking: bool,
@@ -111,7 +111,7 @@ impl From<Range> for ash::vk::BufferCopy {
 pub struct Screen {
     pub cells: Vec<Cell>,
     pub cursor: Cursor,
-    pub row_size: usize,
+    pub y_size: usize,
     pub col_size: usize,
     pub accumulator: Utf8Decoder,
     font: TtfFont,
@@ -128,9 +128,10 @@ fn calculate_dims(
     logical_screen_size: winit::dpi::LogicalSize<f32>,
     cell_metrics: &CellMetrics,
 ) -> (usize, usize) {
-    let row_size = (logical_screen_size.height / cell_metrics.height).floor() as usize;
+    println!("calculated dims: {:?}", logical_screen_size);
+    let y_size = (logical_screen_size.height / cell_metrics.height).floor() as usize;
     let col_size = (logical_screen_size.width / cell_metrics.width).floor() as usize;
-    return (row_size, col_size);
+    return (y_size, col_size);
 }
 impl Screen {
     // for the cursor that could be implemented via a static quad and controlled
@@ -145,16 +146,16 @@ impl Screen {
     ) -> Self {
         println!("logical size: {:?}", logical_screen_size);
         let cell_metrics = CellMetrics::new(font_size, &font);
-        let (row_size, col_size) = calculate_dims(logical_screen_size, &cell_metrics);
+        let (y_size, col_size) = calculate_dims(logical_screen_size, &cell_metrics);
         println!(
-            "cell_metrics: {:?}, row_size: {}, col_size: {}",
-            cell_metrics, row_size, col_size
+            "cell_metrics: {:?}, y_size: {}, col_size: {}",
+            cell_metrics, y_size, col_size
         );
-        let cells = vec![Cell::default(); row_size * col_size];
+        let cells = vec![Cell::default(); y_size * col_size];
         Self {
             cells,
             cursor: Cursor::default(),
-            row_size,
+            y_size,
             col_size,
             accumulator: Utf8Decoder::new(),
             font,
@@ -173,11 +174,11 @@ impl Screen {
             // recalculate cell_metrics if font_size changes
             self.cell_metrics = CellMetrics::new(new_font_size, &self.font)
         }
-        let (new_row_size, new_col_size) = calculate_dims(logical_screen_size, &self.cell_metrics);
+        let (new_y_size, new_col_size) = calculate_dims(logical_screen_size, &self.cell_metrics);
         self.col_size = new_col_size;
-        self.row_size = new_row_size;
+        self.y_size = new_y_size;
         self.cells
-            .resize_with(new_col_size * new_row_size, Default::default);
+            .resize_with(new_col_size * new_y_size, Default::default);
         self.construct_mesh();
         // must reconstruct the mesh from scratch
     }
@@ -186,13 +187,13 @@ impl Screen {
         let mut indices = Vec::new();
         let mut index_offset = 0u32;
         let mut y_cell = 0.0;
-        for row in 0..self.row_size {
+        for y in 0..self.y_size {
             let mut x_cell = 0.0;
-            let row_start = row * self.col_size;
-            let row_slice = &self.cells[row_start..row_start + self.row_size];
-            for cell in row_slice {
+            let y_start = y * self.col_size;
+            let y_slice = &self.cells[y_start..y_start + self.col_size];
+            for cell in y_slice {
                 let baseline_x = x_cell;
-                let baseline_y = y_cell + self.cell_metrics.baseline;
+                let baseline_y = 1080.0 - (y_cell + self.cell_metrics.baseline);
 
                 let x0;
                 let y0;
@@ -278,8 +279,6 @@ impl Screen {
                     pos: [x1, y0],
                     uv: [u1, v0],
                 });
-                println!("vertices: {}, {}, {}, {}", x0, y0, x1, y1);
-                println!("uvs: {}, {}, {}, {}", u0, v0, u1, v1);
                 indices.extend_from_slice(&[
                     index_offset,
                     index_offset + 1,
@@ -295,7 +294,6 @@ impl Screen {
 
             y_cell += self.cell_metrics.height;
         }
-        println!("vertices: {}, indices: {}", vertices.len(), indices.len());
         self.mesh.indices = indices;
         self.mesh.vertices = vertices;
     }
@@ -324,12 +322,12 @@ impl Screen {
                     .clone()
                     .unwrap()
                     .get_header();
-                let col = index % self.row_size;
-                let row = (index - col) / self.row_size;
+                let col = index % self.col_size;
+                let y = index / self.col_size;
                 let x_cell = col as f32 * self.cell_metrics.width;
-                let y_cell = row as f32 * self.cell_metrics.height;
+                let y_cell = y as f32 * self.cell_metrics.height;
                 let baseline_x = x_cell;
-                let baseline_y = y_cell + self.cell_metrics.baseline;
+                let baseline_y = 1080.0 - (y_cell + self.cell_metrics.baseline);
                 let x0 = baseline_x + glyf.x_min as f32 * self.cell_metrics.scale;
                 let y0 = baseline_y + glyf.y_max as f32 * self.cell_metrics.scale;
                 let x1 = baseline_x + glyf.x_max as f32 * self.cell_metrics.scale;
@@ -360,8 +358,7 @@ impl Screen {
                 self.mesh.vertices[init_index + 1] = vx1;
                 self.mesh.vertices[init_index + 2] = vx2;
                 self.mesh.vertices[init_index + 3] = vx3;
-
-                println!("vertices: {:?}, {:?}, {:?}, {:?}", vx0, vx1, vx2, vx3);
+                println!("{}{}{}{}", x0, y0, x1, y1);
                 ranges.push(Range {
                     start: init_index,
                     end: init_index + 4,
@@ -372,46 +369,75 @@ impl Screen {
         Some(ranges)
     }
     pub fn write_char(&mut self, ch: char) {
-        let cursor = &self.cursor;
-        let index = cursor.row * self.row_size + cursor.col;
-        self.cells[index].ch = ch;
-        self.dirty_cells.insert(index);
-        self.advance_cursor(1);
+        match ch {
+            '\n' => {
+                println!("new line charadcter was detected");
+                self.cursor.col = 0;
+                self.cursor.y += 1;
+            }
+            '\r' => {
+                self.cursor.col = 0;
+            }
+            '\x08' => {
+                self.back_cursor(1);
+            }
+            c if !c.is_control() => {
+                let index = self.cursor.y * self.y_size + self.cursor.col;
+
+                if index < self.cells.len() {
+                    self.cells[index].ch = c;
+                    self.dirty_cells.insert(index);
+                }
+
+                self.advance_cursor(1);
+            }
+
+            _ => {}
+        }
     }
     // advance the cursor by a given amount
-    // will go to a new row if the first row is complete
+    // will go to a new y if the first y is complete
     pub fn advance_cursor(&mut self, n: usize) {
-        let total_cols = self.row_size;
-        let total_rows = self.col_size;
-
-        // Flatten current position into linear index
-        let linear = self.cursor.row * total_cols + self.cursor.col;
-
-        // Advance
-        let new_linear = linear + n;
-
-        // Compute new row/col
-        let mut new_row = new_linear / total_cols;
-        let mut new_col = new_linear % total_cols;
-
-        // Clamp to grid bounds (stay on last cell if overflow)
-        if new_row >= total_rows {
-            new_row = total_rows - 1;
-            new_col = total_cols - 1;
+        for _ in 0..n {
+            self.cursor.col += 1;
+            if self.cursor.col >= self.y_size {
+                self.cursor.col = 0;
+                self.cursor.y += 1;
+            }
+            if self.cursor.y * self.y_size >= self.cells.len() {
+                break;
+            }
         }
+    }
+    pub fn back_cursor(&mut self, n: i32) {
+        for _ in 0..n {
+            if self.cursor.col == 0 {
+                if self.cursor.y == 0 {
+                    return;
+                }
+                self.cursor.y -= 1;
+                self.cursor.col = self.y_size - 1;
+            } else {
+                self.cursor.col -= 1;
+            }
 
-        self.cursor.row = new_row;
-        self.cursor.col = new_col;
+            let index = self.cursor.y * self.y_size + self.cursor.col;
+
+            if index < self.cells.len() {
+                self.cells[index].ch = ' ';
+                self.dirty_cells.insert(index);
+            }
+        }
     }
 }
 
 impl Handler for Screen {
     fn cursor_up(&mut self, n: u16) {
-        self.cursor.row = self.cursor.row.saturating_sub(n as usize);
+        self.cursor.y = self.cursor.y.saturating_sub(n as usize);
     }
     fn cursor_down(&mut self, n: u16) {
-        let max_row = self.row_size - 1;
-        self.cursor.row = (self.cursor.row + n as usize).min(max_row);
+        let max_y = self.y_size - 1;
+        self.cursor.y = (self.cursor.y + n as usize).min(max_y);
     }
     fn cursor_right(&mut self, n: u16) {
         let max_col = self.col_size - 1;
@@ -432,7 +458,36 @@ impl Handler for Screen {
 
     fn cursor_position(&mut self, new_x: u16, new_y: u16) {}
     fn device_status_report(&mut self, param: u16) {}
-    fn execute(&mut self, ctl_seq: u8) {}
+    fn execute(&mut self, ctl_seq: u8) {
+        println!("ctrl seq to be executed: {}", ctl_seq);
+
+        match ctl_seq {
+            // BS - Backspace
+            0x08 => {
+                self.back_cursor(1);
+            }
+
+            // HT - Horizontal tab (commonly tab stops every 8 columns)
+            0x09 => {
+                let tab_stop = 8;
+                let next_tab = ((self.cursor.col / tab_stop) + 1) * tab_stop;
+                let advance = next_tab.saturating_sub(self.cursor.col);
+                self.advance_cursor(advance);
+            }
+
+            // LF - Line Feed
+            0x0A => {
+                self.cursor.col = 0;
+            }
+
+            // CR - Carriage Return
+            0x0D => {
+                self.cursor.y += 1;
+            }
+
+            _ => {}
+        }
+    }
     fn handle_osc(&mut self, u: &Vec<u8>) {}
     fn next_line(&mut self) {}
     fn previous_line(&mut self) {}

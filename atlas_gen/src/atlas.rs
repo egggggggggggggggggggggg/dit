@@ -124,9 +124,7 @@ where
         if let Some(uv) = self.uv_table.get(&key) {
             return *uv;
         } else {
-            println!("key: {:?}", key);
             let uv = if let Some(entry) = self.table.get(&key) {
-                println!("there was a valid entry for the character {:?}", entry);
                 entry.uv(self.width, self.height)
             } else {
                 ([0.0, 0.0], [0.0, 0.0])

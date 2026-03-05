@@ -9,5 +9,6 @@ void main() {
    vec2 normalized = aPos / screenSize;
    vec2 ndc = normalized * 2.0 - 1.0;
    ndc.y = -ndc.y;
+
    gl_Position = vec4(ndc, 0.0, 1.0);
 }

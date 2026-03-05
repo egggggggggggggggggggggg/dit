@@ -270,10 +270,8 @@ impl ApplicationHandler for Application {
                     match event.state {
                         ElementState::Pressed => {
                             if let Some(text) = &event.text {
-                                println!("text of the key pressed: {}", text);
                                 self.input_buffer.push_str(text);
                             }
-                            println!("keypressed: {:?}", key);
                             // When a user is holding a key it still generates a Pressed event
                             if !event.repeat {
                                 self.pressed_keys.insert(key);

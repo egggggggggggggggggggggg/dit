@@ -318,7 +318,6 @@ impl DynamicBuffer {
     pub fn write_into_staging<A, T: Copy + Debug>(&mut self, data: &[T], offset: u64) {
         unsafe {
             let data_ptr = self.data_ptr.add(offset as usize);
-            println!("new data_ptr : {:?}", data_ptr);
             let mut align =
                 ash::util::Align::new(data_ptr, align_of::<A>() as _, self.staging.memory_size);
             align.copy_from_slice(data);
@@ -334,7 +333,6 @@ impl DynamicBuffer {
         transfer_queue: vk::Queue,
         regions: &[vk::BufferCopy],
     ) {
-        println!("copying these regions to device memory: {:?}", regions);
         execute_one_time_commands(device, command_pool, transfer_queue, |buffer| unsafe {
             device.cmd_copy_buffer(buffer, self.staging.buffer, self.device.buffer, regions);
         });

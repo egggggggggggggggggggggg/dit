@@ -1,22 +1,17 @@
 use smallvec::SmallVec;
-use std::collections::VecDeque;
-use std::io::Bytes;
-use std::os::linux::raw::stat;
 use std::panic;
 
-use crate::ansii::utf_decoder::Utf8Decoder;
 pub mod details;
-pub mod example;
 pub mod utf_decoder;
 
-#[allow(non_snake_case)]
-//Control bytes for 7 bit mode
-const NUL: u8 = 0x00;
-const BEL: u8 = 0x07;
-const BS: u8 = 0x08;
-const LF: u8 = 0x0A;
-const CR: u8 = 0x0D;
-const ESC: u8 = 0x1B;
+// #[allow(non_snake_case)]
+// //Control bytes for 7 bit mode
+// const NUL: u8 = 0x00;
+// const BEL: u8 = 0x07;
+// const BS: u8 = 0x08;
+// const LF: u8 = 0x0A;
+// const CR: u8 = 0x0D;
+// const ESC: u8 = 0x1B;
 
 // Bytes greater or equal to 0x80  are printable
 #[repr(u8)]
@@ -76,8 +71,6 @@ pub struct Cursor {
     pub visible: bool,
     pub blinking: bool,
 }
-
-const CSI: &str = "\x1b[";
 // Upwards and above for this
 // #[derive(Debug, Clone, Copy)]
 // enum VT220Features {
@@ -179,13 +172,11 @@ impl Parser {
             params: SmallVec::new(),
             intermediates: SmallVec::new(),
             current_param: 0,
-            osc_buffer: Vec::new(), 
+            osc_buffer: Vec::new(),
         }
     }
-    fn handle_esc<H: Handler>(&mut self, final_byte: u8, handler: &mut H) {}
+    fn handle_esc<H: Handler>(&mut self, _final_byte: u8, _handler: &mut H) {}
     fn handle_csi<H: Handler>(&mut self, final_byte: u8, handler: &mut H) {
-        println!("CSI IS BEING EXECUTED : {}", final_byte);
-        println!("Current state: {:?}", self);
         match final_byte {
             b'A' => handler.cursor_up(self.params[0]),
             b'B' => handler.cursor_down(self.params[0]),
@@ -211,7 +202,7 @@ impl Parser {
             b'^' => {}
             b'`' => {}
             b'a' => {}
-            b'b' => {}  
+            b'b' => {}
             b'c' => {}
             b'd' => {}
             b'e' => {}
@@ -291,6 +282,7 @@ impl Parser {
                 return;
             }
         }
+        println!("byte being consumed, {}", byte);
         // Anywhere state
         // match byte {
         //     0x18 | 0x1a => {
