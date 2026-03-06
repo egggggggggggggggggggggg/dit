@@ -21,7 +21,6 @@ pub fn pick_physical_device(
         present_index: present.unwrap(),
         transfer_index: transfer.unwrap(),
     };
-    let props = unsafe { instance.get_physical_device_properties(device) };
     (device, queue_families_indices)
 }
 
@@ -31,7 +30,8 @@ fn is_device_suitable(
     surface_khr: vk::SurfaceKHR,
     device: vk::PhysicalDevice,
 ) -> bool {
-    let (graphics, present, transfer) = find_queue_families(instance, surface, surface_khr, device);
+    let (graphics, present, _transfer) =
+        find_queue_families(instance, surface, surface_khr, device);
     let extension_support = check_device_extension_support(instance, device);
     let is_swapchain_adequate = {
         let details = SwapchainSupportDetails::new(device, surface, surface_khr);

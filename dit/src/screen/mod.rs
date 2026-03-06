@@ -1,15 +1,14 @@
 use std::collections::HashSet;
-
+pub mod rewrite;
 use atlas_gen::{allocator::ShelfAllocator, atlas::Atlas};
 use font_parser::TtfFont;
 use image::Rgb;
 
 use crate::{
     ansii::{Handler, details::Attributes, utf_decoder::Utf8Decoder},
-    renderer::{Mesh, buffer::DynamicBuffer, shader::Vertex},
+    renderer::{Mesh, shader::Vertex},
 };
 
-const BLINK_DURATION: f64 = 0.5;
 #[derive(Debug, Default, Clone)]
 pub struct Cursor {
     pub y: usize,
@@ -29,9 +28,6 @@ impl Default for Cell {
             cell_attr: Attributes::default(),
         }
     }
-}
-struct ScreenConfig {
-    font_size: f64,
 }
 #[derive(Debug)]
 pub struct CellMetrics {
@@ -128,7 +124,6 @@ fn calculate_dims(
     logical_screen_size: winit::dpi::LogicalSize<f32>,
     cell_metrics: &CellMetrics,
 ) -> (usize, usize) {
-    println!("calculated dims: {:?}", logical_screen_size);
     let y_size = (logical_screen_size.height / cell_metrics.height).floor() as usize;
     let col_size = (logical_screen_size.width / cell_metrics.width).floor() as usize;
     return (y_size, col_size);
@@ -144,13 +139,8 @@ impl Screen {
         texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator>,
         logical_screen_size: winit::dpi::LogicalSize<f32>,
     ) -> Self {
-        println!("logical size: {:?}", logical_screen_size);
         let cell_metrics = CellMetrics::new(font_size, &font);
         let (y_size, col_size) = calculate_dims(logical_screen_size, &cell_metrics);
-        println!(
-            "cell_metrics: {:?}, y_size: {}, col_size: {}",
-            cell_metrics, y_size, col_size
-        );
         let cells = vec![Cell::default(); y_size * col_size];
         Self {
             cells,
@@ -225,18 +215,7 @@ impl Screen {
                             x1 = baseline_x + header.x_max as f32 * self.cell_metrics.scale;
                             y1 = baseline_y + header.y_min as f32 * self.cell_metrics.scale;
 
-                            if let ([uu0, vv0], [uu1, vv1]) = self.atlas.get_uv(cell.ch) {
-                                u0 = uu0;
-                                v0 = vv0;
-                                u1 = uu1;
-                                v1 = vv1;
-                            } else {
-                                // Glyph exists but no atlas entry
-                                u0 = 0.0;
-                                v0 = 0.0;
-                                u1 = 0.0;
-                                v1 = 0.0;
-                            }
+                            ([u0, v0], [u1, v1]) = self.atlas.get_uv(cell.ch);
                         } else {
                             // Failed parse → fallback to empty quad
                             x0 = baseline_x;
@@ -306,7 +285,6 @@ impl Screen {
         if self.dirty_cells.is_empty() {
             return None;
         }
-        println!("there are {} dirty cells to update", self.dirty_cells.len());
         let mut ranges = Vec::new();
 
         // Theoretically the index buffer shouldn't need updating unless its rezising at which point
@@ -358,7 +336,6 @@ impl Screen {
                 self.mesh.vertices[init_index + 1] = vx1;
                 self.mesh.vertices[init_index + 2] = vx2;
                 self.mesh.vertices[init_index + 3] = vx3;
-                println!("{}{}{}{}", x0, y0, x1, y1);
                 ranges.push(Range {
                     start: init_index,
                     end: init_index + 4,
@@ -371,7 +348,6 @@ impl Screen {
     pub fn write_char(&mut self, ch: char) {
         match ch {
             '\n' => {
-                println!("new line charadcter was detected");
                 self.cursor.col = 0;
                 self.cursor.y += 1;
             }
@@ -459,8 +435,6 @@ impl Handler for Screen {
     fn cursor_position(&mut self, new_x: u16, new_y: u16) {}
     fn device_status_report(&mut self, param: u16) {}
     fn execute(&mut self, ctl_seq: u8) {
-        println!("ctrl seq to be executed: {}", ctl_seq);
-
         match ctl_seq {
             // BS - Backspace
             0x08 => {

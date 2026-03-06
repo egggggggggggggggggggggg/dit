@@ -1,13 +1,9 @@
-use std::{
-    collections::HashMap,
-    fmt::{Debug, Display},
-    os::raw::c_void,
-};
+use std::{collections::HashMap, fmt::Debug, os::raw::c_void};
 
 use crate::renderer::*;
 use ash::{
     Device,
-    vk::{self, BufferCopy},
+    vk::{self},
 };
 pub fn create_buffer(
     vk_context: &VkContext,
@@ -354,9 +350,9 @@ impl DynamicBuffer {
     }
 }
 
-struct Allocation {
-    offset: u64,
-    size: u64,
+pub struct Allocation {
+    pub offset: u64,
+    pub size: u64,
 }
 //copies from a given buffer to another one
 //staging buffer - allows us to write to it via mapping
@@ -372,5 +368,3 @@ struct Allocation {
 //incase fragmentation ever occurs or we need to reallocate a new buffer due to growing storage demand
 //persistent mapping of the staging buffer is fine hence the need to store the data ptr in the struct for access
 //synchronization will not be managed by the buffer itself, this is up to the user to manually set it up
-
-fn copy_between_buffers() {}

@@ -74,14 +74,6 @@ fn entry() {
                 let b_0_255 = ((clamped_b / distance_range + 0.5) * max_color)
                     .clamp(0.0, 255.0)
                     .round() as u8;
-                //pixel mistmatch issue
-
-                // println!(
-                //     "{:?}, after conversion: {}, {}, {}",
-                //     distance, r_0_255, g_0_255, b_0_255,
-                // );
-                // println!("previous distance: {:?}", previous_distance);
-                // previous_distance = distance;
                 let pixel = Rgb([r_0_255, g_0_255, b_0_255]);
                 output_image.put_pixel(px, pixel_height - 1 - py, pixel);
             }

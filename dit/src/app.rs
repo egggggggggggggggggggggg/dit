@@ -57,7 +57,6 @@ impl Application {
         }
         // only write if the input buffer is not empty
         if !self.input_buffer.is_empty() {
-            println!("input buffer wasnt empty writing to the thing");
             self.pty.write(&self.input_buffer).unwrap();
             for char in self.input_buffer.chars() {
                 screen.write_char(char);
@@ -180,14 +179,6 @@ fn preload_latin(font: &mut TtfFont, texture_atlas: &mut Atlas<char, Rgb<u8>, Sh
                 let b_0_255 = ((clamped_b / distance_range + 0.5) * max_color)
                     .clamp(0.0, 255.0)
                     .round() as u8;
-                //pixel mistmatch issue
-
-                // println!(
-                //     "{:?}, after conversion: {}, {}, {}",
-                //     distance, r_0_255, g_0_255, b_0_255,
-                // );
-                // println!("previous distance: {:?}", previous_distance);
-                // previous_distance = distance;
                 let pixel = Rgb([r_0_255, g_0_255, b_0_255]);
                 output_image.put_pixel(px, pixel_height - 1 - py, pixel);
             }
@@ -291,7 +282,6 @@ impl ApplicationHandler for Application {
     }
     fn about_to_wait(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
         if self.last_frame.elapsed().as_secs_f32() >= 1.0 {
-            println!("frame_count : {}", self.frame_count);
             self.frame_count = 0;
             self.last_frame = Instant::now();
         }
@@ -308,7 +298,7 @@ impl ApplicationHandler for Application {
             _ => {}
         }
     }
-    fn exiting(&mut self, event_loop: &winit::event_loop::ActiveEventLoop) {
+    fn exiting(&mut self, _event_loop: &winit::event_loop::ActiveEventLoop) {
         self.vk_app.as_ref().unwrap().wait_gpu_idle();
     }
 }

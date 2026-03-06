@@ -169,10 +169,7 @@ impl Bezier for BezierTypes {
     fn signed_distance(&self, origin: Vec2, param: &mut f64) -> SignedDistance {
         match self {
             BezierTypes::Linear(b) => b.signed_distance(origin, param),
-            BezierTypes::Quadratic(b) => {
-                // println!("quadratic case: {:?}", b);
-                b.signed_distance(origin, param)
-            }
+            BezierTypes::Quadratic(b) => b.signed_distance(origin, param),
             BezierTypes::Cubic(b) => b.signed_distance(origin, param),
         }
     }

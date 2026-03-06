@@ -1,6 +1,5 @@
 use crate::renderer::{
-    buffer::DynamicBuffer, swapchain::SwapchainProperties, texture::Texture,
-    vkapp::MAX_FRAMES_IN_FLIGHT,
+    swapchain::SwapchainProperties, texture::Texture, vkapp::MAX_FRAMES_IN_FLIGHT,
 };
 use ash::{Device, vk};
 pub fn create_render_pass(
@@ -140,7 +139,6 @@ impl InFlightFrames {
     }
     //Returns the next resource
     //Dynamic vertex buffer + Sync Objects for the
-    fn unitered_next() {}
 }
 
 impl Iterator for InFlightFrames {

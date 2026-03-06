@@ -12,7 +12,6 @@ pub mod utf_decoder;
 // const LF: u8 = 0x0A;
 // const CR: u8 = 0x0D;
 // const ESC: u8 = 0x1B;
-
 // Bytes greater or equal to 0x80  are printable
 #[repr(u8)]
 pub enum ESC {
@@ -282,7 +281,6 @@ impl Parser {
                 return;
             }
         }
-        println!("byte being consumed, {}", byte);
         // Anywhere state
         // match byte {
         //     0x18 | 0x1a => {

@@ -5,15 +5,6 @@ pub struct QueueFamiliesIndices {
     pub present_index: u32,
     pub transfer_index: u32,
 }
-impl QueueFamiliesIndices {
-    fn new(graphics: u32, present: u32, transfer: u32) -> Self {
-        Self {
-            graphics_index: graphics,
-            present_index: present,
-            transfer_index: transfer,
-        }
-    }
-}
 pub fn find_queue_families(
     instance: &Instance,
     surface: &surface::Instance,

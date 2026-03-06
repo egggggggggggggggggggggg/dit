@@ -1,5 +1,3 @@
-use std::cmp::Ordering;
-
 use crate::{
     arit::sign,
     bezier::{Bezier, BezierTypes, Bounds},
@@ -290,32 +288,4 @@ pub fn convergent_curve_ordering(a: &BezierTypes, b: &BezierTypes) -> i64 {
     }
 
     convergent_curve_ordering_core(&combined, corner_index, a_order, b_order)
-}
-
-#[derive(Debug)]
-struct Intersection {
-    x: f64,
-    direction: i32,
-    contour_index: i32,
-}
-
-impl PartialEq for Intersection {
-    fn eq(&self, other: &Self) -> bool {
-        self.x == other.x
-    }
-}
-
-impl Eq for Intersection {}
-
-impl PartialOrd for Intersection {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        self.x.partial_cmp(&other.x)
-    }
-}
-
-impl Ord for Intersection {
-    fn cmp(&self, other: &Self) -> Ordering {
-        // If you are certain x will never be NaN, unwrap is acceptable.
-        self.x.partial_cmp(&other.x).unwrap_or(Ordering::Equal)
-    }
 }

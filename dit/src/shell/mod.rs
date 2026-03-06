@@ -99,7 +99,6 @@ impl ShellConfig {
 impl Default for ShellConfig {
     fn default() -> Self {
         if let Ok(shell) = std::env::var("SHELL") {
-            println!("User preferred shell: {}", shell);
             Self {
                 shell,
                 args: Vec::new(),
@@ -135,8 +134,6 @@ impl Pty {
         let slave_name = unsafe { ptsname(&master_fd) }?;
         let slave_fd = nix::fcntl::open(Path::new(&slave_name), OFlag::O_RDWR, Mode::empty())?;
         disable_echo(slave_fd.as_fd())?;
-        println!("Forking the process");
-        println!("current process id: {}", unsafe { getpid() });
         match unsafe { fork()? } {
             ForkResult::Child => unsafe {
                 setsid();
@@ -173,7 +170,6 @@ impl Pty {
             ForkResult::Parent { child } => {
                 let master = unsafe { File::from_raw_fd(master_fd.into_raw_fd()) };
                 waitpid(child, Some(WaitPidFlag::WNOHANG))?;
-                println!("parent process id: {}", unsafe { getpid() });
                 fcntl(&master, F_SETFL(OFlag::O_NONBLOCK))?;
                 Ok(Self {
                     master,
@@ -203,7 +199,6 @@ impl Pty {
     }
     /// This function assumes the user has not included
     pub fn write(&mut self, input: &String) -> std::io::Result<()> {
-        println!("writing this string: {:x?}", input.as_bytes());
         self.master.write_all(input.as_bytes())?;
         Ok(())
     }

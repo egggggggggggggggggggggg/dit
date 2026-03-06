@@ -1,7 +1,7 @@
+use crate::renderer::queue::QueueFamiliesIndices;
 use crate::renderer::*;
-use crate::renderer::{queue::QueueFamiliesIndices, texture::Texture};
 use ash::{
-    Device, Entry, Instance,
+    Entry,
     khr::{surface, swapchain as khr_swapchain},
     vk,
 };
@@ -127,11 +127,6 @@ impl VkApplication {
 
         let texture = create_texture_image(&vk_context, command_pool, graphics_queue);
         let (vertices, indices) = (&mesh.vertices, &mesh.indices);
-        println!(
-            "vertex_length: {}, index_length: {}",
-            vertices.len(),
-            indices.len()
-        );
         let mut dynamic_vertex_buffer = DynamicBuffer::new(
             (byte_size(&vertices) * 4) as vk::DeviceSize,
             &vk_context,
