@@ -217,6 +217,45 @@ impl Buffer {
     }
 }
 type Offset = u64;
+#[derive(Debug, Clone)]
+pub struct Range {
+    pub start: usize,
+    pub end: usize, // exclusive
+}
+fn merge_ranges(mut ranges: Vec<Range>) -> Vec<Range> {
+    if ranges.is_empty() {
+        return vec![];
+    }
+
+    // Sort by start
+    ranges.sort_by_key(|r| r.start);
+
+    let mut merged = Vec::new();
+    let mut current = ranges[0].clone();
+
+    for range in ranges.into_iter().skip(1) {
+        // Merge if overlapping OR contiguous
+        if range.start <= current.end + 1 {
+            current.end = current.end.max(range.end);
+        } else {
+            merged.push(current);
+            current = range;
+        }
+    }
+
+    merged.push(current);
+    merged
+}
+impl From<Range> for ash::vk::BufferCopy {
+    fn from(value: Range) -> Self {
+        Self {
+            dst_offset: value.start as u64,
+            src_offset: value.start as u64,
+            size: (value.end - value.start) as u64,
+        }
+    }
+}
+
 pub struct DynamicBuffer {
     pub allocation_table: HashMap<Offset, Allocation>,
     pub device: Buffer,

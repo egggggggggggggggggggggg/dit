@@ -184,21 +184,17 @@ impl Screen {
             for cell in y_slice {
                 let baseline_x = x_cell;
                 let baseline_y = 1080.0 - (y_cell + self.cell_metrics.baseline);
-
                 let x0;
                 let y0;
                 let x1;
                 let y1;
-
                 let (u0, v0, u1, v1);
-
                 if cell.ch.is_whitespace() {
                     // Use full cell bounds for whitespace quad
                     x0 = baseline_x;
                     y0 = y_cell;
                     x1 = baseline_x + self.cell_metrics.width;
                     y1 = y_cell + self.cell_metrics.height;
-
                     // Zero UVs
                     u0 = 0.0;
                     v0 = 0.0;
@@ -241,7 +237,6 @@ impl Screen {
                         v1 = 0.0;
                     }
                 }
-
                 vertices.push(Vertex {
                     pos: [x0, y0],
                     uv: [u0, v0],
@@ -266,7 +261,6 @@ impl Screen {
                     index_offset + 3,
                     index_offset,
                 ]);
-
                 index_offset += 4;
                 x_cell += self.cell_metrics.width;
             }

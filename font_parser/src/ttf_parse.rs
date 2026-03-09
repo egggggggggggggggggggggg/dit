@@ -23,6 +23,16 @@ pub struct TtfFont {
     pub hmtx: Hmtx,
     pub post: Post,
 }
+#[derive(Debug)]
+pub struct CellMetrics {
+    pub width: f32,
+    pub height: f32,
+    pub baseline: f32,
+    pub underline_pos: f32,
+    pub underline_thickness: f32,
+    pub font_size: f32,
+    pub scale: f32,
+}
 
 impl TtfFont {
     pub fn new(path: &str) -> Result<Self, Error> {
@@ -117,7 +127,32 @@ impl TtfFont {
             return None;
         }
     }
-    pub fn scaled_hhea() {}
+    //a is an arbitrary letter to get metrics
+    //This method only works for monospace as it assumes all cells = same
+    pub fn get_cell_metriscs(&self, font_size: f32) -> CellMetrics {
+        let units_per_em = self.head.units_per_em;
+        let gid = self.lookup('a' as u32).unwrap();
+        let arbitrary_metrics = self.hmtx.metric_for_glyph(gid as u16);
+        let cell_advance = arbitrary_metrics.advance_width;
+        let cell_ascent = self.hhea.ascent;
+        let cell_descent = self.hhea.descent;
+        let cell_height = cell_ascent - cell_descent + self.hhea.line_gap;
+        let scale = font_size / units_per_em as f32;
+        let cell_width_px = cell_advance as f32 * scale;
+        let cell_height_px = cell_height as f32 * scale;
+        let baseline_y = cell_ascent as f32 * scale;
+        let underline_offset_px = self.post.underline_position as f32 * scale;
+        let underline_thickness = self.post.underline_thickness as f32 * scale;
+        CellMetrics {
+            font_size,
+            width: cell_width_px,
+            height: cell_height_px,
+            baseline: baseline_y,
+            underline_pos: underline_offset_px,
+            underline_thickness,
+            scale,
+        }
+    }
 }
 fn read_file(path: &str) -> std::io::Result<Vec<u8>> {
     let mut data = Vec::new();
