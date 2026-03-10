@@ -11,6 +11,7 @@ bitflags::bitflags! {
         const STRIKE        = 1 << 7;
     }
 }
+
 #[derive(Debug, Default, Clone)]
 pub struct Rgb {
     pub r: u8,

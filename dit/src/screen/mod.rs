@@ -1,5 +1,6 @@
 use std::collections::HashSet;
 pub mod rewrite;
+pub mod ring_buf;
 use atlas_gen::{allocator::ShelfAllocator, atlas::Atlas};
 use font_parser::TtfFont;
 use image::Rgb;
