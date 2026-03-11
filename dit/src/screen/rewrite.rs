@@ -83,15 +83,24 @@ pub struct Screen {
     window_size: LogicalSize<f32>,
     mesh: Mesh,
 }
-///Screen utilizes a single buffer for both its history and viewable buffer area
-///The viewable buffer area is defined by the start ptr and the dims of the screen
+trait Font {
+}
+struct FontManager<T: Font> {
+    font_table: HashMap<&'static str, Font>,
+
+}
+///Holds a hashtable of fonts and is responsible for generating the font texture atlases. 
 ///
-///
-///
-///
+impl FontManager {
+
+}
+
+
 impl Screen {
     //for a given relative position return the absolute index
-    pub fn new(font_size: f32, window_size: LogicalSize<f32>) {}
+    pub fn new(font_size: f32, window_size: LogicalSize<f32>, ) {
+        let cell_metrics = CellMetrics::new(font_size, font)
+    }
     ///Resizing for the screen while keeping cell size the same, eg when the window has its dimensions reduced.
     pub fn window_resize(&mut self, window_size: LogicalSize<f32>) {
         let (new_x, new_y) = calculate_dims(window_size, &self.cell_metric);

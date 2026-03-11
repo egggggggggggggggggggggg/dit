@@ -16,6 +16,7 @@ math = { path = "../math"}
 smallvec = "1.15.1"
 nix = { version="0.31.1", features=["term", "process", "fs", "ioctl", "poll"] }
 libc = "0.2.182"
+thiserror = "2.0.18"
 
 [profile.release]
 debug = true

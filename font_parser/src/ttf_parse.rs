@@ -33,7 +33,32 @@ pub struct CellMetrics {
     pub font_size: f32,
     pub scale: f32,
 }
-
+impl CellMetrics {
+    pub fn new(font_size: f32, font: &TtfFont) -> Self {
+        let units_per_em = font.head.units_per_em;
+        let gid = font.lookup('a' as u32).unwrap();
+        let arbitrary_metrics = font.hmtx.metric_for_glyph(gid as u16);
+        let cell_advance = arbitrary_metrics.advance_width;
+        let cell_ascent = font.hhea.ascent;
+        let cell_descent = font.hhea.descent;
+        let cell_height = cell_ascent - cell_descent + font.hhea.line_gap;
+        let scale = font_size / units_per_em as f32;
+        let cell_width_px = cell_advance as f32 * scale;
+        let cell_height_px = cell_height as f32 * scale;
+        let baseline_y = cell_ascent as f32 * scale;
+        let underline_offset_px = font.post.underline_position as f32 * scale;
+        let underline_thickness = font.post.underline_thickness as f32 * scale;
+        Self {
+            font_size,
+            width: cell_width_px,
+            height: cell_height_px,
+            baseline: baseline_y,
+            underline_pos: underline_offset_px,
+            underline_thickness,
+            scale,
+        }
+    }
+}
 impl TtfFont {
     pub fn new(path: &str) -> Result<Self, Error> {
         let mut data = match read_file(path) {
