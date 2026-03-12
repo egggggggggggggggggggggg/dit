@@ -1,6 +1,6 @@
 use std::{
     collections::HashMap,
-    ffi::OsStr,
+    ffi::{OsStr, OsString},
     path::{Path, PathBuf},
 };
 
@@ -76,7 +76,8 @@ impl FontLoader {
     ///Searches itself for a font file, if loaded it'll be in font table. Otherwise it consults the
     ///non loaded vec and performs a search for the requested font.
     pub fn load_font_file(&mut self) {}
-    pub fn find_font_files() -> Result<Vec<PathBuf>, Error> {
+    ///Looks in common places for font files and saves them to a Vec.
+    pub fn discover_font_files() -> Result<Vec<PathBuf>, Error> {
         let mut discovered_files = Vec::new();
         #[cfg(target_os = "linux")]
         let directory_path = Path::new("/usr/share/fonts");
@@ -100,8 +101,32 @@ impl FontLoader {
     }
 }
 
-use thiserror::Error;
+struct FileInfo {
+    name: String,
+    tokens: Vec<String>,
+    stripped: String,
+    path: PathBuf,
+}
+//Finds a specific file via fuzzy searching.
+//
+type FileName = OsString;
+struct FileFinder {
+    file_table: HashMap<FileName, FileInfo>,
+}
+impl FileFinder {}
 
+pub fn strip(path: &std::path::Path) -> Option<String> {
+    let stem = path.file_stem()?.to_string_lossy();
+    let mut out = String::with_capacity(stem.len());
+    for c in stem.chars() {
+        if c.is_ascii_alphanumeric() {
+            out.push(c.to_ascii_lowercase());
+        }
+    }
+
+    Some(out)
+}
+use thiserror::Error;
 #[derive(Error, Debug)]
 enum Error {
     #[error("IO error: {0}")]
@@ -110,6 +135,4 @@ enum Error {
     #[error("Parse error: {0}")]
     Parse(#[from] std::num::ParseIntError),
 }
-struct FontConfig {}
-
 pub struct OtfFont {}
