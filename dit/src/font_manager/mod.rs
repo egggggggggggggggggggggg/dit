@@ -27,6 +27,7 @@ trait Font: Sized {
 enum FontFileTypes {
     Ttf(TtfFont),
     Otf(OtfFont),
+    NotLoaded,
 }
 impl Font for FontFileTypes {
     fn new(path: &str) -> Option<Self> {
@@ -58,6 +59,9 @@ impl Font for FontFileTypes {
         }
     }
 }
+impl FontFileTypes {
+    fn load<A>(&mut self) -> Self {}
+}
 bitflags::bitflags! {
     struct FontAttributes: u32 {
         const BOLD = 0x01;
@@ -66,6 +70,8 @@ bitflags::bitflags! {
 }
 
 pub struct FontLoader {
+    //The Font table can contain unloaded fonts. the font loader has to match on that enum variant
+    //and properly load it and return it back into
     font_table: HashMap<&'static str, FontFileTypes>,
     current_font: &'static str,
     font_size: f32,
@@ -101,21 +107,21 @@ impl FontLoader {
     }
 }
 
-struct FileInfo {
-    name: String,
-    tokens: Vec<String>,
-    stripped: String,
-    path: PathBuf,
+#[derive(Clone)]
+pub struct FileInfo {
+    pub name: String,
+    pub tokens: Vec<String>,
+    pub stripped: String,
+    pub path: PathBuf,
 }
-//Finds a specific file via fuzzy searching.
-//
+
 type FileName = OsString;
+
 pub struct FileFinder {
-    ///Contains the actual path info
     pub file_table: HashMap<FileName, FileInfo>,
-    ///Flattened stuff
     pub flattened_array: Vec<FileName>,
 }
+
 impl FileFinder {
     pub fn new() -> Self {
         Self {
@@ -123,39 +129,89 @@ impl FileFinder {
             flattened_array: Vec::new(),
         }
     }
-    pub fn yank_files(path: &str) -> Result<Vec<String>, Error> {
-        let mut discovered_files = Vec::new();
-        #[cfg(target_os = "linux")]
-        let directory_path = Path::new(path);
-        let mut entries_to_search = vec![std::fs::read_dir(directory_path)?];
-        while let Some(entry) = entries_to_search.pop() {
+
+    pub fn yank_files(path: &str) -> Result<Vec<FileInfo>, Error> {
+        let mut discovered = Vec::new();
+        let mut entries = vec![std::fs::read_dir(Path::new(path))?];
+
+        while let Some(entry) = entries.pop() {
             for dir_entry in entry {
-                match dir_entry {
-                    Ok(f) => {
-                        let path = f.path();
-                        if path.is_dir() {
-                            entries_to_search.push(std::fs::read_dir(path)?);
-                        } else {
-                            discovered_files.push(strip(&path).unwrap());
-                        }
+                let f = match dir_entry {
+                    Ok(f) => f,
+                    Err(_) => {
+                        println!("File issue");
+                        continue;
                     }
-                    _ => println!("File issue"),
+                };
+
+                let path = f.path();
+
+                if path.is_dir() {
+                    entries.push(std::fs::read_dir(&path)?);
+                    continue;
+                }
+
+                if let Some(stem) = path.file_stem() {
+                    let name = stem.to_string_lossy().to_string();
+
+                    let (tokens, stripped) = tokenize_and_strip(&name);
+
+                    discovered.push(FileInfo {
+                        name,
+                        tokens,
+                        stripped,
+                        path,
+                    });
                 }
             }
         }
-        Ok(discovered_files)
+
+        Ok(discovered)
     }
-    pub fn find_file(file_name: &str) {}
+
+    pub fn find_file(&self, file_name: &str) {
+        // fuzzy search would go here
+    }
 }
-pub fn strip(path: &std::path::PathBuf) -> Option<String> {
-    let stem = path.file_stem()?.to_string_lossy();
-    let mut out = String::with_capacity(stem.len());
-    for c in stem.chars() {
+
+fn tokenize_and_strip(name: &str) -> (Vec<String>, String) {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+
+    let mut prev_lower = false;
+
+    for c in name.chars() {
+        if !c.is_ascii_alphanumeric() {
+            if !current.is_empty() {
+                tokens.push(current.to_lowercase());
+                current.clear();
+            }
+            prev_lower = false;
+            continue;
+        }
+
+        if c.is_uppercase() && prev_lower {
+            tokens.push(current.to_lowercase());
+            current.clear();
+        }
+
+        current.push(c);
+        prev_lower = c.is_lowercase();
+    }
+
+    if !current.is_empty() {
+        tokens.push(current.to_lowercase());
+    }
+
+    // stripped version
+    let mut stripped = String::with_capacity(name.len());
+    for c in name.chars() {
         if c.is_ascii_alphanumeric() {
-            out.push(c.to_ascii_lowercase());
+            stripped.push(c.to_ascii_lowercase());
         }
     }
-    Some(out)
+
+    (tokens, stripped)
 }
 pub fn normalize(str: &str) {}
 use thiserror::Error;

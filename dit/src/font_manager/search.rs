@@ -1,4 +1,8 @@
-use std::{borrow::Cow, collections::HashSet};
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    hash::Hash,
+};
 
 pub fn levenshtein_distance(s1: &str, s2: &str) -> usize {
     let len1 = s1.len();
@@ -91,40 +95,44 @@ pub trait SetOps {
 pub fn jaccard<T: SetOps>(a: &T, b: &T) -> f32 {
     a.intersect(b, 0.5) as f32 / a.union(b) as f32
 }
-
-struct <A: AsRef<str>>Wordss<A> {
-    buf: Vec<A>, 
+#[derive(Clone, Debug, Default)]
+pub struct TextBuf<A: AsRef<str>> {
+    pub buf: Vec<A>,
+    //Similarity cache for both union and intersect.
+    cache: HashMap<A, f32>,
 }
-
-
-pub type Words<'a> = Vec<Cow<'a, str>>;
-
-impl<'a> SetOps for Words<'a> {
-    //cache this for usage in the union. 
+impl<A: AsRef<str>> TextBuf<A> {
+    pub fn new(buf: Vec<A>) -> Self {
+        Self {
+            buf,
+            cache: HashMap::new(),
+        }
+    }
+}
+impl<A: AsRef<str> + Eq + Hash> SetOps for TextBuf<A> {
+    fn union(&self, other: &Self) -> usize {
+        let mut set: HashSet<_> = self.buf.iter().collect();
+        set.extend(other.buf.iter());
+        set.len()
+    }
     fn intersect(&self, other: &Self, threshold: f32) -> usize {
         let mut counter = 0;
-        for a in self {
-            for b in other {
-                let sim_val = dl_distance(&a, &b);
+        for a in &self.buf {
+            for b in &other.buf {
+                let sim_val = dl_distance(a, b);
                 if sim_val >= threshold {
                     counter += 1;
                 }
             }
         }
-        println!("Intersections: {}", counter);
         counter
     }
-    fn union(&self, other: &Self) -> usize {
-        let mut set: HashSet<&Cow<'a, str>> = self.iter().collect();
-        set.extend(other.iter());
-        println!("Unions: {}", set.len());
-        set.len()
-    }
 }
+
+#[inline(always)]
 fn idx(i: usize, j: usize, width: usize) -> usize {
     i * width + j
 }
-
 fn dl(i: usize, j: usize, width: usize, s1: &[char], s2: &[char], memo: &mut [i32]) -> i32 {
     if memo[idx(i, j, width)] != -1 {
         return memo[idx(i, j, width)];
@@ -156,7 +164,9 @@ fn dl(i: usize, j: usize, width: usize, s1: &[char], s2: &[char], memo: &mut [i3
     result
 }
 
-fn dl_distance(s1: &str, s2: &str) -> f32 {
+fn dl_distance<A: AsRef<str>>(s1: &A, s2: &A) -> f32 {
+    let s1 = s1.as_ref();
+    let s2 = s2.as_ref();
     let s1_chars: Vec<char> = s1.chars().collect();
     let s2_chars: Vec<char> = s2.chars().collect();
 
