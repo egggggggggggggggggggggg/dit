@@ -5,6 +5,7 @@ use std::{
     path::{Path, PathBuf},
 };
 pub mod search;
+use atlas_gen::{allocator::ShelfAllocator, atlas::Atlas};
 use font_parser::{CellMetrics, GlyphHeader, TtfFont};
 
 #[derive(Clone, Copy, Debug)]
@@ -219,7 +220,10 @@ fn tokenize_and_strip(name: &str) -> (Vec<String>, String) {
     (tokens, stripped)
 }
 pub fn normalize(str: &str) {}
+use image::Rgb;
 use thiserror::Error;
+
+use crate::dsa::cache::LruCache;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("IO error: {0}")]
@@ -228,4 +232,38 @@ pub enum Error {
     #[error("Parse error: {0}")]
     Parse(#[from] std::num::ParseIntError),
 }
-pub struct OtfFont {}
+struct AtlasEntry {}
+
+pub struct AtlasCache {
+    cache: LruCache<char, AtlasEntry>,
+    //Changing this later on to be more ergonomic or just hard code the values.
+    atlas: Atlas<char, Rgb<u8>, ShelfAllocator>,
+}
+///Changes to implement: Shift the Atlas struct from being the thing that manages all the Atlas
+///related stuff to just holding the TextureAtlas. The AtlasCache is responsible for managing the
+///UV cords of the texture. 
+
+
+
+///Possible Allocator implementations. 
+///Buddy Allocator
+///Slab Allocator
+///Shelf Allocator - this sucks cuz fragmentation heavy
+impl AtlasCache {
+    pub fn new(capacity: usize, height: u32, width: u32) -> Self {
+        let allocator = ShelfAllocator::new(width, height);
+        Self {
+            cache: LruCache::with_capacity(capacity),
+            atlas: Atlas::new(width, height, allocator, 2, false),
+        }
+    }
+    ///This will only return the UV coords for the key if the texture for the glyph exists in the
+    ///Atlas itself. If it doesn't exist there then push the new value to the LRUCache. The
+    ///LruCache will return the proper character to evict from it's cache. This doesn't handle
+    ///ligatures as that would require abstracing over chars or having some way of hasing that.
+    ///For future changes, maybe move over from using chars to codepoints for expandability. 
+    pub fn get(&mut self, k: &char) {
+        self.cache.
+    }
+
+}
