@@ -1,6 +1,7 @@
 use std::{
     collections::HashMap,
     ffi::{OsStr, OsString},
+    hash::Hash,
     path::{Path, PathBuf},
 };
 pub mod search;
@@ -19,7 +20,7 @@ trait Font: Sized {
     ///This handles both lookup of the gid + assembling the glyphs into full equations to be used
     ///by the texture atlas assembler. This is a function defined in the trait due to how different
     ///font file types can store their cmap tables differently.
-    fn load_unicode_range(range: UnicodeRange);
+    fn load_unicode_range(&self, range: UnicodeRange);
     fn get_glyf_header(&self, gid: u16) -> Option<&GlyphHeader>;
     ///This assumes a monospace font and usage in a monospace setting.
     fn get_cell_metrics(&self, font_size: f32) -> CellMetrics;
@@ -47,10 +48,17 @@ impl Font for FontFileTypes {
             }
         }
     }
-
-    fn load_unicode_range(range: UnicodeRange) {}
+    fn load_unicode_range(&self, range: UnicodeRange) {
+        match self {
+            Self::Ttf(font) => {}
+            _ => {}
+        }
+    }
     fn get_glyf_header(&self, gid: u16) -> Option<&GlyphHeader> {
-        None
+        match self {
+            Self::Ttf(font) => font.get_glyf_header(gid),
+            _ => None,
+        }
     }
     fn get_cell_metrics(&self, font_size: f32) -> CellMetrics {
         match self {
@@ -58,9 +66,6 @@ impl Font for FontFileTypes {
             _ => panic!(),
         }
     }
-}
-impl FontFileTypes {
-    fn load<A>(&mut self) -> Self {}
 }
 bitflags::bitflags! {
     struct FontAttributes: u32 {
