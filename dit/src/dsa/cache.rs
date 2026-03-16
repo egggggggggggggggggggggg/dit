@@ -94,3 +94,9 @@ impl<K: Eq + Hash + Clone, V> LruCache<K, V> {
         if let Some(index) = self.map.get(&key) {}
     }
 }
+trait Cache<K, V> {
+    fn get() {}
+    fn set() {}
+    fn contains() {}
+    fn clear() {}
+}

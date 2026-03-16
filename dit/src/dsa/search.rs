@@ -3,6 +3,10 @@ use std::{
     hash::Hash,
 };
 
+use image::{ImageBuffer, Rgb};
+
+use crate::font_manager::{FileInfo, yank_files};
+
 pub fn levenshtein_distance(s1: &str, s2: &str) -> usize {
     let len1 = s1.len();
     let len2 = s2.len();
@@ -84,47 +88,52 @@ fn lcs_rec_mem(
     memo[idx] = Some(result);
     result
 }
-pub trait SetOps {
-    //Returns a number indicating the amount of items in both sets that satisfy a given sim()
-    //condition
-    fn intersect(&self, other: &Self, threshold: f32) -> usize;
-    //Retuns a number indicating the amount of unique items of both sets combined.
-    fn union(&self, other: &Self) -> usize;
-}
-pub fn jaccard<T: SetOps>(a: &T, b: &T) -> f32 {
-    a.intersect(b, 0.5) as f32 / a.union(b) as f32
-}
 #[derive(Clone, Debug, Default)]
-pub struct TextBuf<A: AsRef<str>> {
-    pub buf: Vec<A>,
-    //Similarity cache for both union and intersect.
-    cache: HashMap<A, f32>,
+pub struct SimilarityCache<A: AsRef<str> + Eq + Hash + Clone> {
+    cache: HashMap<(A, A), f32>, // Cache for pairs (A, A)
 }
-impl<A: AsRef<str>> TextBuf<A> {
-    pub fn new(buf: Vec<A>) -> Self {
+
+impl<A: AsRef<str> + Eq + Hash + Clone> SimilarityCache<A> {
+    pub fn get_or_compute(&mut self, a: &A, b: &A) -> f32 {
+        if let Some(sim) = self.cache.get(&(a.clone(), b.clone())) {
+            return *sim;
+        }
+        let sim_val = dl_distance(a, b);
+        self.cache.insert((a.clone(), b.clone()), sim_val);
+        self.cache.insert((b.clone(), a.clone()), sim_val);
+        sim_val
+    }
+    pub fn new() -> Self {
         Self {
-            buf,
             cache: HashMap::new(),
         }
     }
 }
-impl<A: AsRef<str> + Eq + Hash> SetOps for TextBuf<A> {
-    fn union(&self, other: &Self) -> usize {
-        let mut set: HashSet<_> = self.buf.iter().collect();
-        set.extend(other.buf.iter());
-        set.len()
+
+#[derive(Clone, Debug, Default)]
+pub struct TextBuf<A: AsRef<str>> {
+    pub buf: Vec<A>,
+}
+
+impl<A: AsRef<str> + Eq + Hash + Clone> TextBuf<A> {
+    pub fn new(buf: Vec<A>) -> Self {
+        Self { buf }
     }
-    fn intersect(&self, other: &Self, threshold: f32) -> usize {
-        let mut counter = 0;
+    pub fn jaccard(&mut self, other: &Self, threshold: f32, cache: &mut SimilarityCache<A>) -> f32 {
+        let mut intersect_counter = 0;
+        let mut union_counter = 0;
         for a in &self.buf {
             for b in &other.buf {
-                let sim_val = dl_distance(a, b);
+                let sim_val = cache.get_or_compute(&a.clone(), &b.clone());
                 if sim_val >= threshold {
-                    counter += 1;
+                    intersect_counter += 1;
+                    union_counter += 1;
+                } else {
+                    union_counter += 2;
                 }
             }
         }
-        counter
+        intersect_counter as f32 / union_counter as f32
     }
 }
 
@@ -184,4 +193,112 @@ fn dl_distance<A: AsRef<str>>(s1: &A, s2: &A) -> f32 {
     } else {
         1.0 - (distance / max_len)
     }
+}
+///Contains the default font types that should be supported bymost linux distros.
+///If it fails it'll just default to one of the fonts shipped with the application.
+mod font_defaults {
+    pub const DEJAVU: [&str; 2] = ["deja", "vu"];
+    pub const LIBERATION: [&str; 1] = ["liberation"];
+    pub const FIRA: [&str; 1] = ["fira"];
+}
+
+//if we want terminal emulator reloading we must be able to reload anything related to the config
+//which includes font types. This is only kept
+const SIMILARITY_THRESHOLD: f32 = 0.7;
+struct FontLoader {
+    current_font: String,
+    current_file_info: FileInfo,
+    cache: SimilarityCache<String>,
+    font_files: Vec<FileInfo>,
+}
+impl FontLoader {
+    pub fn new() {
+        //performs a tree construction on lauch
+        //Invokes a defaul t font type that it knows exists.
+        let font_file_dir = yank_files("/usr/share/fonts").unwrap();
+        let default_font_tokens = font_defaults::DEJAVU;
+    }
+    #[inline(always)]
+    pub fn find_file(
+        file_name: &[&str; 2],
+        file_infos: &Vec<FileInfo>,
+        cache: SimilarityCache<String>,
+    ) -> Option<String> {
+        let mut best_match = "".to_string();
+        let mut min_cost = 0.0f32;
+        let t1 = TextBuf::new(file_name.to_vec());
+        for file_info in file_infos {
+            let tokens = file_info.tokens.clone();
+            let mut t2 = TextBuf::new(tokens);
+            // let res = t1.jaccard(&mut t2, SIMILARITY_THRESHOLD, cache);
+            let res = 0.5;
+            if res > min_cost {
+                best_match = file_info.name.clone();
+                min_cost = res;
+            }
+        }
+        Some(best_match)
+    }
+}
+struct AtlasCache {
+    dirty_atlas: bool,
+    ///This gets sets to true when the texture atlas cannot contain all the current characters on
+    ///the screen which might cause repetitive cache eviction thus hurting performance. This
+    ///probably will never happen with a 2048 * 2048 sized texture atlas but just in case.
+    should_reallocate: bool,
+    uv_table: HashMap<char, [(f32, f32); 2]>,
+}
+impl AtlasCache {
+    fn new() -> Self {
+        Self {
+            dirty_atlas: false,
+            should_reallocate: false,
+            uv_table: HashMap::new(),
+        }
+    }
+    fn get_char(&mut self, codepoint: u16) {
+        //check if we can get them from the UvTable.
+    }
+}
+
+pub struct AtlasEntry {}
+
+struct TextureAtlas<A> {
+    atlas_entries: HashMap<char, AtlasEntry>,
+    uv_table: HashMap<char, ([f32; 2], [f32; 2])>,
+    height: u32,
+    width: u32,
+    padding: u32,
+    atlas: ImageBuffer<Rgb<u8>, Vec<u8>>,
+    allocator: A,
+}
+
+impl TextureAtlas {
+    pub fn new(width: u32, height: u32, padding: u32) -> Self {
+        Self {
+            atlas_entries: HashMap::new(),
+            uv_table: HashMap::new(),
+            height,
+            width,
+            padding,
+            atlas: ImageBuffer::new(width, height),
+        }
+    }
+    fn add_image(&mut self, key: char, src: ImageBuffer<Rgb<u8>, Vec<u8>>) {
+        let (w, h) = src.dimensions();
+        let p = self.padding;
+        let alloc_w = w + 2 * p;
+        let alloc_h = h + 2 * p;
+        let (x, y) = self
+            .allocator
+            .allocate(alloc_w, alloc_h)
+            .ok_or("Atlas Full")?;
+        for sy in 0..h {
+            for sx in 0..w {
+                let pixel = *src.get_pixel(sx, sy);
+                self.atlas.put_pixel(x + p + sx, y + p + sy, pixel);
+            }
+        }
+    }
+    fn get_uv(&mut self, key: char) -> ([f32; 2], [f32; 2]) {}
 }

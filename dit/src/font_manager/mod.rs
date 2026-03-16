@@ -90,11 +90,13 @@ pub fn yank_files(path: &str) -> Result<Vec<FileInfo>, Error> {
             let path = f.path();
 
             if path.is_dir() {
+                println!("Path for directory: {:?}", path);
                 entries.push(std::fs::read_dir(&path)?);
                 continue;
             }
-
+            println!("File name: {:?}", path);
             if let Some(stem) = path.file_stem() {
+                println!("File stem exists for this");
                 let name = stem.to_string_lossy().to_string();
 
                 let tokens = tokenize(&name);
