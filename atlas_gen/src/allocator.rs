@@ -47,3 +47,27 @@ impl AtlasAllocator for ShelfAllocator {
         (self.width, self.height)
     }
 }
+struct Block {}
+
+struct BuddyAllocator {
+    width: u32,
+    height: u32,
+    blocks: Vec<Block>,
+}
+impl BuddyAllocator {
+    pub fn new(width: u32, height: u32) -> Self {
+        Self {
+            width,
+            height,
+            blocks: Vec::new(),
+        }
+    }
+}
+impl AtlasAllocator for BuddyAllocator {
+    fn allocate(&mut self, w: u32, h: u32) -> Option<(u32, u32)> {
+        None
+    }
+    fn dimensions(&self) -> (u32, u32) {
+        (0, 0)
+    }
+}

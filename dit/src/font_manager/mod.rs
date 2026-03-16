@@ -15,7 +15,7 @@ pub enum UnicodeRange {}
 ///- Ligature loading
 ///- Handlig
 trait Font: Sized {
-    ///Creates a font file for th
+    ///Creates a font file struct representation.
     fn new(path: &str) -> Option<Self>;
     ///Handles loading of a specified UnicodeRange.
     ///This handles both lookup of the gid + assembling the glyphs into full equations to be used
@@ -28,7 +28,6 @@ trait Font: Sized {
 }
 enum FontFileTypes {
     Ttf(TtfFont),
-    Otf(OtfFont),
     NotLoaded,
 }
 impl Font for FontFileTypes {
@@ -36,7 +35,6 @@ impl Font for FontFileTypes {
         let file_path = Path::new(path);
         match file_path.extension().and_then(|ext| ext.to_str()) {
             Some("ttf") => Some(FontFileTypes::Ttf(TtfFont::new(path).unwrap())),
-            Some("otf") => Some(FontFileTypes::Otf(OtfFont {})),
             Some(_) => {
                 println!("Unsupported font file type, skipping loading");
                 return None;
@@ -68,116 +66,111 @@ impl Font for FontFileTypes {
         }
     }
 }
-bitflags::bitflags! {
-    struct FontAttributes: u32 {
-        const BOLD = 0x01;
-
-    }
-}
-
-pub struct FontLoader {
-    //The Font table can contain unloaded fonts. the font loader has to match on that enum variant
-    //and properly load it and return it back into
-    font_table: HashMap<&'static str, FontFileTypes>,
-    current_font: &'static str,
-    font_size: f32,
-    font_attributes: FontAttributes,
-}
-impl FontLoader {
-    pub fn new() {}
-    ///Searches itself for a font file, if loaded it'll be in font table. Otherwise it consults the
-    ///non loaded vec and performs a search for the requested font.
-    pub fn load_font_file(&mut self) {}
-    ///Looks in common places for font files and saves them to a Vec.
-    pub fn discover_font_files() -> Result<Vec<PathBuf>, Error> {
-        let mut discovered_files = Vec::new();
-        #[cfg(target_os = "linux")]
-        let directory_path = Path::new("/usr/share/fonts");
-        let mut entries_to_search = vec![std::fs::read_dir(directory_path)?];
-        while let Some(entry) = entries_to_search.pop() {
-            for dir_entry in entry {
-                match dir_entry {
-                    Ok(f) => {
-                        let path = f.path();
-                        if path.is_dir() {
-                            entries_to_search.push(std::fs::read_dir(path)?);
-                        } else {
-                            discovered_files.push(path);
-                        }
-                    }
-                    _ => println!("File issue"),
-                }
-            }
-        }
-        Ok(discovered_files)
-    }
-}
-
 #[derive(Clone)]
 pub struct FileInfo {
     pub name: String,
     pub tokens: Vec<String>,
-    pub stripped: String,
     pub path: PathBuf,
 }
 
-type FileName = OsString;
+pub fn yank_files(path: &str) -> Result<Vec<FileInfo>, Error> {
+    let mut discovered = Vec::new();
+    let mut entries = vec![std::fs::read_dir(Path::new(path))?];
 
-pub struct FileFinder {
-    pub file_table: HashMap<FileName, FileInfo>,
-    pub flattened_array: Vec<FileName>,
-}
-
-impl FileFinder {
-    pub fn new() -> Self {
-        Self {
-            file_table: HashMap::new(),
-            flattened_array: Vec::new(),
-        }
-    }
-
-    pub fn yank_files(path: &str) -> Result<Vec<FileInfo>, Error> {
-        let mut discovered = Vec::new();
-        let mut entries = vec![std::fs::read_dir(Path::new(path))?];
-
-        while let Some(entry) = entries.pop() {
-            for dir_entry in entry {
-                let f = match dir_entry {
-                    Ok(f) => f,
-                    Err(_) => {
-                        println!("File issue");
-                        continue;
-                    }
-                };
-
-                let path = f.path();
-
-                if path.is_dir() {
-                    entries.push(std::fs::read_dir(&path)?);
+    while let Some(entry) = entries.pop() {
+        for dir_entry in entry {
+            let f = match dir_entry {
+                Ok(f) => f,
+                Err(_) => {
+                    println!("File issue");
                     continue;
                 }
+            };
 
-                if let Some(stem) = path.file_stem() {
-                    let name = stem.to_string_lossy().to_string();
+            let path = f.path();
 
-                    let (tokens, stripped) = tokenize_and_strip(&name);
+            if path.is_dir() {
+                entries.push(std::fs::read_dir(&path)?);
+                continue;
+            }
 
-                    discovered.push(FileInfo {
-                        name,
-                        tokens,
-                        stripped,
-                        path,
-                    });
-                }
+            if let Some(stem) = path.file_stem() {
+                let name = stem.to_string_lossy().to_string();
+
+                let tokens = tokenize(&name);
+                discovered.push(FileInfo { name, tokens, path });
             }
         }
-
-        Ok(discovered)
     }
 
-    pub fn find_file(&self, file_name: &str) {
-        // fuzzy search would go here
+    Ok(discovered)
+}
+#[derive(Copy, Clone, Eq, PartialEq)]
+enum CharClass {
+    Lower,
+    Upper,
+    Digit,
+    Other,
+}
+fn classify(c: char) -> CharClass {
+    if c.is_ascii_lowercase() {
+        CharClass::Lower
+    } else if c.is_ascii_uppercase() {
+        CharClass::Upper
+    } else if c.is_ascii_digit() {
+        CharClass::Digit
+    } else {
+        CharClass::Other
     }
+}
+pub fn tokenize(name: &str) -> Vec<String> {
+    let mut tokens = Vec::new();
+    let mut current = String::new();
+
+    let mut prev = CharClass::Other;
+    let mut chars = name.chars().peekable();
+
+    while let Some(c) = chars.next() {
+        let class = classify(c);
+
+        if class == CharClass::Other {
+            if !current.is_empty() {
+                tokens.push(current.to_lowercase());
+                current.clear();
+            }
+            prev = CharClass::Other;
+            continue;
+        }
+
+        let next = chars.peek().copied().map(classify);
+
+        let boundary = match (prev, class) {
+            (CharClass::Lower, CharClass::Upper) => true,
+            (CharClass::Digit, CharClass::Lower | CharClass::Upper) => true,
+            (CharClass::Lower | CharClass::Upper, CharClass::Digit) => true,
+            (CharClass::Upper, CharClass::Upper)
+                if matches!(next, Some(CharClass::Lower)) && !current.is_empty() =>
+            {
+                true
+            }
+
+            _ => false,
+        };
+
+        if boundary {
+            tokens.push(current.to_lowercase());
+            current.clear();
+        }
+
+        current.push(c);
+        prev = class;
+    }
+
+    if !current.is_empty() {
+        tokens.push(current.to_lowercase());
+    }
+
+    tokens
 }
 
 fn tokenize_and_strip(name: &str) -> (Vec<String>, String) {
@@ -219,11 +212,8 @@ fn tokenize_and_strip(name: &str) -> (Vec<String>, String) {
 
     (tokens, stripped)
 }
-pub fn normalize(str: &str) {}
-use image::Rgb;
 use thiserror::Error;
 
-use crate::dsa::cache::LruCache;
 #[derive(Error, Debug)]
 pub enum Error {
     #[error("IO error: {0}")]
@@ -231,39 +221,4 @@ pub enum Error {
 
     #[error("Parse error: {0}")]
     Parse(#[from] std::num::ParseIntError),
-}
-struct AtlasEntry {}
-
-pub struct AtlasCache {
-    cache: LruCache<char, AtlasEntry>,
-    //Changing this later on to be more ergonomic or just hard code the values.
-    atlas: Atlas<char, Rgb<u8>, ShelfAllocator>,
-}
-///Changes to implement: Shift the Atlas struct from being the thing that manages all the Atlas
-///related stuff to just holding the TextureAtlas. The AtlasCache is responsible for managing the
-///UV cords of the texture. 
-
-
-
-///Possible Allocator implementations. 
-///Buddy Allocator
-///Slab Allocator
-///Shelf Allocator - this sucks cuz fragmentation heavy
-impl AtlasCache {
-    pub fn new(capacity: usize, height: u32, width: u32) -> Self {
-        let allocator = ShelfAllocator::new(width, height);
-        Self {
-            cache: LruCache::with_capacity(capacity),
-            atlas: Atlas::new(width, height, allocator, 2, false),
-        }
-    }
-    ///This will only return the UV coords for the key if the texture for the glyph exists in the
-    ///Atlas itself. If it doesn't exist there then push the new value to the LRUCache. The
-    ///LruCache will return the proper character to evict from it's cache. This doesn't handle
-    ///ligatures as that would require abstracing over chars or having some way of hasing that.
-    ///For future changes, maybe move over from using chars to codepoints for expandability. 
-    pub fn get(&mut self, k: &char) {
-        self.cache.
-    }
-
 }

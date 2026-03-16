@@ -3,8 +3,8 @@ use std::{borrow::Cow, path::Path};
 use dit::{
     app::Application,
     font_manager::{
-        FileFinder,
         search::{TextBuf, jaccard},
+        yank_files,
     },
 };
 use winit::event_loop::{ControlFlow, EventLoop};
@@ -22,7 +22,7 @@ fn main() {
     let tb = TextBuf::new(segs);
     let mut best_match = "".to_string();
     let mut cost = f32::MIN;
-    let discoverd_files = FileFinder::yank_files("/usr/share/fonts/").unwrap();
+    let discoverd_files = yank_files("/usr/share/fonts/").unwrap();
     for file_info in discoverd_files {
         let tokens = file_info.tokens;
         let text_buf = TextBuf::new(tokens);
