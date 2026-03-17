@@ -35,16 +35,15 @@ where
     width: u32,
     height: u32,
     padding: u32,
-    bleed: bool,
 }
 
 impl<T, P, A> Atlas<T, P, A>
 where
-    T: Hash + Eq + Debug,
+    T: Hash + Eq + Debug + Copy,
     P: Pixel<Subpixel = u8>,
     A: AtlasAllocator,
 {
-    pub fn new(width: u32, height: u32, allocator: A, padding: u32, bleed: bool) -> Self {
+    pub fn new(width: u32, height: u32, allocator: A, padding: u32) -> Self {
         Self {
             image: ImageBuffer::new(width, height),
             table: HashMap::new(),
@@ -53,7 +52,6 @@ where
             width,
             height,
             padding,
-            bleed,
         }
     }
     pub fn add_image(&mut self, key: T, src: &ImageBuffer<P, Vec<u8>>) -> Result<(), &'static str> {
@@ -71,15 +69,15 @@ where
                 self.image.put_pixel(x + p + sx, y + p + sy, pixel);
             }
         }
-        self.table.insert(
-            key,
-            AtlasEntry {
-                x: x + p,
-                y: y + p,
-                width: w,
-                height: h,
-            },
-        );
+        let atlas_entry = AtlasEntry {
+            x: x + p,
+            y: y + p,
+            width: w,
+            height: h,
+        };
+        self.table.insert(key, atlas_entry);
+        self.uv_table
+            .insert(key, atlas_entry.uv(self.width, self.height));
         Ok(())
     }
     pub fn get_uv(&mut self, key: T) -> ([f32; 2], [f32; 2]) {

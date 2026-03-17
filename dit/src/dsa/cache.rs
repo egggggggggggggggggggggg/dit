@@ -56,6 +56,13 @@ impl<K: Eq + Hash + Clone, V> LruCache<K, V> {
             self.tail = prev;
         }
     }
+    ///This increases the capacity of the cache if there isn't enough space to fit the item.
+    pub fn push(&mut self, key: K, value: V) {
+        if self.map.len() == self.capacity {
+            self.capacity += 1;
+        }
+        self.insert(key, value);
+    }
     pub fn insert(&mut self, key: K, value: V) -> Option<V> {
         let mut evicted = None;
         if self.map.len() == self.capacity {
@@ -84,14 +91,61 @@ impl<K: Eq + Hash + Clone, V> LruCache<K, V> {
     ///Shrinks the cache to the desired size by calling evict the required amount of times to reach
     ///the target size. Will not return the nodes that evict returns. Call shrink_and_take()
     ///instead.
-    pub fn shrink(&mut self, target: usize) {}
-    ///Same as shrink but it returns the nodes that get evicted.
-    pub fn shrink_and_take(&mut self, target: usize) -> Vec<Node<K, V>> {
-        vec![]
+    pub fn shrink(&mut self, target: usize) {
+        while self.map.len() > target {
+            self.evict();
+        }
+
+        ///Same as shrink but it returns the nodes that get evicted.
+        pub fn shrink_and_take(&mut self, target: usize) -> Vec<Node<K, V>> {
+            let mut removed = Vec::new();
+            while self.map.len() > target {
+                if let Some(tail_idx) = self.tail {
+                    let key = self.nodes[tail_idx].key.clone();
+
+                    self.remove_from_list(tail_idx);
+                    self.map.remove(&key);
+
+                    let last_idx = self.nodes.len() - 1;
+                    let node = self.nodes.swap_remove(tail_idx);
+
+                    if tail_idx != last_idx {
+                        let moved_key = self.nodes[tail_idx].key.clone();
+                        self.map.insert(moved_key, tail_idx);
+
+                        let (prev, next) = {
+                            let n = &self.nodes[tail_idx];
+                            (n.prev, n.next)
+                        };
+
+                        if let Some(p) = prev {
+                            self.nodes[p].next = Some(tail_idx);
+                        }
+                        if let Some(n) = next {
+                            self.nodes[n].prev = Some(tail_idx);
+                        }
+
+                        if self.head == Some(last_idx) {
+                            self.head = Some(tail_idx);
+                        }
+                        if self.tail == Some(last_idx) {
+                            self.tail = Some(tail_idx);
+                        }
+                    }
+
+                    removed.push(node);
+                }
+            }
+
+            removed
+        }
+        ///The entry is cached
+        
     }
-    ///The entry is cached
-    pub fn get(&mut self, key: &K) {
-        if let Some(index) = self.map.get(&key) {}
+    pub fn get(&mut self, key: &K) -> Option<&V> {
+        let &index = self.map.get(key)?;
+        self.move_to_head(index);
+        Some(&self.nodes[index].value)
     }
 }
 trait Cache<K, V> {

@@ -3,9 +3,13 @@ use std::{
     hash::Hash,
 };
 
+use atlas_gen::atlas::Atlas;
 use image::{ImageBuffer, Rgb};
 
-use crate::font_manager::{FileInfo, yank_files};
+use crate::{
+    dsa::cache::LruCache,
+    font_manager::{FileInfo, yank_files},
+};
 
 pub fn levenshtein_distance(s1: &str, s2: &str) -> usize {
     let len1 = s1.len();
@@ -240,65 +244,31 @@ impl FontLoader {
         Some(best_match)
     }
 }
-struct AtlasCache {
+struct AtlasCache<T, P, A>
+where
+    T: Hash + Eq + Debug + Copy,
+    P: Pixel<Subpixel = u8>,
+    A: AtlasAllocator,
+{
     dirty_atlas: bool,
-    ///This gets sets to true when the texture atlas cannot contain all the current characters on
-    ///the screen which might cause repetitive cache eviction thus hurting performance. This
-    ///probably will never happen with a 2048 * 2048 sized texture atlas but just in case.
     should_reallocate: bool,
-    uv_table: HashMap<char, [(f32, f32); 2]>,
+    texture_atlas: Atlas<T, P, A>,
+    cache: LruCache<T, ([f32; 2], [f32; 2])>,
 }
-impl AtlasCache {
-    fn new() -> Self {
+impl AtlasCache<T, P, A>
+where
+    T: Hash + Eq + Debug + Copy,
+    P: Pixel<Subpixel = u8>,
+    A: AtlasAllocator,
+{
+    pub fn new(font_size: f32, allocator: A, width: usize, height: usize, padding: u32) -> Self {
+        //replace this with an actual formula later on. this is just for rough prototyping.
+        let approx = (width as f32 / font_size) / 2.0;
         Self {
             dirty_atlas: false,
             should_reallocate: false,
-            uv_table: HashMap::new(),
+            texture_atlas: Atlas::new(width, height, allocator, padding),
+            cache: LruCache::with_capacity(approx.powi(2) as u32),
         }
     }
-    fn get_char(&mut self, codepoint: u16) {
-        //check if we can get them from the UvTable.
-    }
-}
-
-pub struct AtlasEntry {}
-
-struct TextureAtlas<A> {
-    atlas_entries: HashMap<char, AtlasEntry>,
-    uv_table: HashMap<char, ([f32; 2], [f32; 2])>,
-    height: u32,
-    width: u32,
-    padding: u32,
-    atlas: ImageBuffer<Rgb<u8>, Vec<u8>>,
-    allocator: A,
-}
-
-impl TextureAtlas {
-    pub fn new(width: u32, height: u32, padding: u32) -> Self {
-        Self {
-            atlas_entries: HashMap::new(),
-            uv_table: HashMap::new(),
-            height,
-            width,
-            padding,
-            atlas: ImageBuffer::new(width, height),
-        }
-    }
-    fn add_image(&mut self, key: char, src: ImageBuffer<Rgb<u8>, Vec<u8>>) {
-        let (w, h) = src.dimensions();
-        let p = self.padding;
-        let alloc_w = w + 2 * p;
-        let alloc_h = h + 2 * p;
-        let (x, y) = self
-            .allocator
-            .allocate(alloc_w, alloc_h)
-            .ok_or("Atlas Full")?;
-        for sy in 0..h {
-            for sx in 0..w {
-                let pixel = *src.get_pixel(sx, sy);
-                self.atlas.put_pixel(x + p + sx, y + p + sy, pixel);
-            }
-        }
-    }
-    fn get_uv(&mut self, key: char) -> ([f32; 2], [f32; 2]) {}
 }
