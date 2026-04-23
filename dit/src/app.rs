@@ -126,7 +126,7 @@ impl Application {
 // will change it later
 const CROSS_THRESHOLD: f64 = 3.0;
 fn preload_latin(font: &mut TtfFont, texture_atlas: &mut Atlas<char, Rgb<u8>, ShelfAllocator>) {
-    let target_font_px = 64;
+    let target_font_px = 32;
     let dmax_px = 1.0;
     for ch in '!'..'~' {
         let mut seed = 0;
@@ -207,10 +207,10 @@ impl ApplicationHandler for Application {
         let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
         let atlas_allocator = ShelfAllocator::new(512, 512);
         let mut texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator> =
-            Atlas::new(1024, 1024, atlas_allocator, 4, false);
+            Atlas::new(1024, 1024, atlas_allocator, 4);
         preload_latin(&mut font, &mut texture_atlas);
         let mut screen = Screen::new(
-            24.0,
+            12.0,
             font,
             texture_atlas,
             LogicalSize::from_physical(window_size, window.scale_factor()),
@@ -265,6 +265,10 @@ impl ApplicationHandler for Application {
                         ElementState::Pressed => {
                             if let Some(text) = &event.text {
                                 self.input_buffer.push_str(text);
+                            }
+                            match key {
+                                KeyCode::Enter => {}
+                                _ => {}
                             }
                             // When a user is holding a key it still generates a Pressed event
                             if !event.repeat {

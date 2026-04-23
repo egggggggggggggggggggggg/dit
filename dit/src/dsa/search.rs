@@ -1,10 +1,11 @@
 use std::{
     collections::{HashMap, HashSet},
+    fmt::Debug,
     hash::Hash,
 };
 
-use atlas_gen::atlas::Atlas;
-use image::{ImageBuffer, Rgb};
+use atlas_gen::{allocator::AtlasAllocator, atlas::Atlas};
+use image::{ImageBuffer, Pixel, Rgb};
 
 use crate::{
     dsa::cache::LruCache,
@@ -242,33 +243,5 @@ impl FontLoader {
             }
         }
         Some(best_match)
-    }
-}
-struct AtlasCache<T, P, A>
-where
-    T: Hash + Eq + Debug + Copy,
-    P: Pixel<Subpixel = u8>,
-    A: AtlasAllocator,
-{
-    dirty_atlas: bool,
-    should_reallocate: bool,
-    texture_atlas: Atlas<T, P, A>,
-    cache: LruCache<T, ([f32; 2], [f32; 2])>,
-}
-impl AtlasCache<T, P, A>
-where
-    T: Hash + Eq + Debug + Copy,
-    P: Pixel<Subpixel = u8>,
-    A: AtlasAllocator,
-{
-    pub fn new(font_size: f32, allocator: A, width: usize, height: usize, padding: u32) -> Self {
-        //replace this with an actual formula later on. this is just for rough prototyping.
-        let approx = (width as f32 / font_size) / 2.0;
-        Self {
-            dirty_atlas: false,
-            should_reallocate: false,
-            texture_atlas: Atlas::new(width, height, allocator, padding),
-            cache: LruCache::with_capacity(approx.powi(2) as u32),
-        }
     }
 }

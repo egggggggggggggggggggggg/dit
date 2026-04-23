@@ -2,7 +2,7 @@ use std::collections::HashSet;
 pub mod rewrite;
 pub mod ring_buf;
 use atlas_gen::{allocator::ShelfAllocator, atlas::Atlas};
-use font_parser::TtfFont;
+use font_parser::{CellMetrics, TtfFont};
 use image::Rgb;
 
 use crate::{
@@ -27,42 +27,6 @@ impl Default for Cell {
         Self {
             ch: ' ',
             cell_attr: Attributes::default(),
-        }
-    }
-}
-#[derive(Debug)]
-pub struct CellMetrics {
-    pub width: f32,
-    pub height: f32,
-    pub baseline: f32,
-    pub underline_pos: f32,
-    pub underline_thickness: f32,
-    pub font_size: f32,
-    pub scale: f32,
-}
-impl CellMetrics {
-    pub fn new(font_size: f32, font: &TtfFont) -> Self {
-        let units_per_em = font.head.units_per_em;
-        let gid = font.lookup(PLACEHOLDER as u32).unwrap();
-        let arbitrary_metrics = font.hmtx.metric_for_glyph(gid as u16);
-        let cell_advance = arbitrary_metrics.advance_width;
-        let cell_ascent = font.hhea.ascent;
-        let cell_descent = font.hhea.descent;
-        let cell_height = cell_ascent - cell_descent + font.hhea.line_gap;
-        let scale = font_size / units_per_em as f32;
-        let cell_width_px = cell_advance as f32 * scale;
-        let cell_height_px = cell_height as f32 * scale;
-        let baseline_y = cell_ascent as f32 * scale;
-        let underline_offset_px = font.post.underline_position as f32 * scale;
-        let underline_thickness = font.post.underline_thickness as f32 * scale;
-        Self {
-            font_size,
-            width: cell_width_px,
-            height: cell_height_px,
-            baseline: baseline_y,
-            underline_pos: underline_offset_px,
-            underline_thickness,
-            scale,
         }
     }
 }
@@ -119,7 +83,6 @@ pub struct Screen {
     pub mesh: Mesh,
 }
 // An arbitrary character for monospace fonts
-const PLACEHOLDER: char = 'a';
 #[inline(always)]
 fn calculate_dims(
     logical_screen_size: winit::dpi::LogicalSize<f32>,
@@ -402,6 +365,63 @@ impl Screen {
     }
 }
 
+// impl Handler for Screen {
+//     fn cursor_up(&mut self, n: u16) {
+//         self.cursor.y = self.cursor.y.saturating_sub(n as usize);
+//     }
+//     fn cursor_down(&mut self, n: u16) {
+//         let max_y = self.y_size - 1;
+//         self.cursor.y = (self.cursor.y + n as usize).min(max_y);
+//     }
+//     fn cursor_right(&mut self, n: u16) {
+//         let max_col = self.col_size - 1;
+//         self.cursor.col = self.cursor.col.saturating_add(n as usize).min(max_col);
+//     }
+//
+//     fn cursor_left(&mut self, n: u16) {
+//         self.cursor.col = self.cursor.col.saturating_sub(n as usize);
+//     }
+//     fn accumluate_utf8(&mut self, byte: u8) {
+//         if let Some(ch) = self.accumulator.decode(byte) {
+//             self.write_char(ch);
+//         }
+//     }
+//     fn char_attributes(&mut self, params: &smallvec::SmallVec<[u16; 8]>) {}
+//
+//     fn cursor_position(&mut self, new_x: u16, new_y: u16) {}
+//     fn device_status_report(&mut self, param: u16) {}
+//     fn execute(&mut self, ctl_seq: u8) {
+//         match ctl_seq {
+//             // BS - Backspace
+//             0x08 => {
+//                 self.back_cursor(1);
+//             }
+//
+//             // HT - Horizontal tab (commonly tab stops every 8 columns)
+//             0x09 => {
+//                 let tab_stop = 8;
+//                 let next_tab = ((self.cursor.col / tab_stop) + 1) * tab_stop;
+//                 let advance = next_tab.saturating_sub(self.cursor.col);
+//                 self.advance_cursor(advance);
+//             }
+//
+//             // LF - Line Feed
+//             0x0A => {
+//                 self.cursor.col = 0;
+//             }
+//
+//             // CR - Carriage Return
+//             0x0D => {
+//                 self.cursor.y += 1;
+//             }
+//
+//             _ => {}
+//         }
+//     }
+//     fn handle_osc(&mut self, u: &Vec<u8>) {}
+//     fn next_line(&mut self) {}
+//     fn previous_line(&mut self) {}
+// }
 impl Handler for Screen {
     fn cursor_up(&mut self, n: u16) {
         self.cursor.y = self.cursor.y.saturating_sub(n as usize);
@@ -423,41 +443,50 @@ impl Handler for Screen {
             self.write_char(ch);
         }
     }
-    fn bell() {}
-    fn char_attributes(&mut self, params: &smallvec::SmallVec<[u16; 8]>) {}
-    fn csi() {}
 
-    fn cursor_position(&mut self, new_x: u16, new_y: u16) {}
-    fn device_status_report(&mut self, param: u16) {}
+    fn bell(&mut self) {}
+    fn index(&mut self) {}
     fn execute(&mut self, ctl_seq: u8) {
         match ctl_seq {
-            // BS - Backspace
             0x08 => {
                 self.back_cursor(1);
             }
-
-            // HT - Horizontal tab (commonly tab stops every 8 columns)
-            0x09 => {
-                let tab_stop = 8;
-                let next_tab = ((self.cursor.col / tab_stop) + 1) * tab_stop;
-                let advance = next_tab.saturating_sub(self.cursor.col);
-                self.advance_cursor(advance);
-            }
-
-            // LF - Line Feed
-            0x0A => {
-                self.cursor.col = 0;
-            }
-
-            // CR - Carriage Return
-            0x0D => {
-                self.cursor.y += 1;
-            }
-
             _ => {}
         }
     }
-    fn handle_osc(&mut self, u: &Vec<u8>) {}
+    fn set_mode(&mut self, params: &smallvec::SmallVec<[u16; 8]>, private: bool) {}
     fn next_line(&mut self) {}
+    fn scroll_up(&mut self, n: u16) {}
+    fn erase_line(&mut self, mode: u16) {}
+    fn reset_mode(&mut self, params: &smallvec::SmallVec<[u16; 8]>, private: bool) {}
+    fn soft_reset(&mut self) {}
+    fn window_ops(&mut self, params: &smallvec::SmallVec<[u16; 8]>) {}
+    fn handle_osc(&mut self, osc: &Vec<u8>) {}
+    fn erase_chars(&mut self, n: u16) {}
+    fn scroll_down(&mut self, n: u16) {}
+    fn delete_chars(&mut self, n: u16) {}
+    fn insert_lines(&mut self, n: u16) {}
+    fn delete_lines(&mut self, n: u16) {}
+    fn set_tab_stop(&mut self) {}
     fn previous_line(&mut self) {}
+    fn erase_display(&mut self, mode: u16) {}
+    fn reverse_index(&mut self) {}
+    fn next_line_esc(&mut self) {}
+    fn clear_tab_stop(&mut self, mode: u16) {}
+    fn cursor_position(&mut self, row: u16, col: u16) {}
+    fn char_attributes(&mut self, params: &smallvec::SmallVec<[u16; 8]>) {}
+    fn set_cursor_style(&mut self, style: u16) {}
+    fn insert_blank_chars(&mut self, n: u16) {}
+    fn cursor_forward_tab(&mut self, n: u16) {}
+    fn cursor_backward_tab(&mut self, n: u16) {}
+    fn save_cursor_position(&mut self) {}
+    fn set_scrolling_region(&mut self, top: u16, bottom: u16) {}
+    fn device_status_report(&mut self, param: u16) {}
+    fn restore_cursor_position(&mut self) {}
+    fn cursor_vertical_absolute(&mut self, row: u16) {}
+    fn primary_device_attributes(&mut self) {}
+    fn cursor_horizontal_absolute(&mut self, col: u16) {}
+    fn secondary_device_attributes(&mut self) {}
+    fn set_keypad_application_mode(&mut self) {}
+    fn unset_keypad_application_mode(&mut self) {}
 }

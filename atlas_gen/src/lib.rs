@@ -22,7 +22,7 @@ pub fn entry() -> Atlas<char, Rgb<u8>, ShelfAllocator> {
     let mut font = TtfFont::new("../JetBrainsMonoNerdFontMono-Regular.ttf").unwrap();
     let atlas_allocator = ShelfAllocator::new(512, 512);
     let mut texture_atlas: Atlas<char, Rgb<u8>, ShelfAllocator> =
-        Atlas::new(1024, 1024, atlas_allocator, 4, false);
+        Atlas::new(1024, 1024, atlas_allocator, 4);
     let target_font_px = 64;
     let mut seed = 12;
     for ch in '!'..'~' {
