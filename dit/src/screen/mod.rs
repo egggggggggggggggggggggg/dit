@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-pub mod rewrite;
 pub mod ring_buf;
 use atlas_gen::{allocator::ShelfAllocator, atlas::Atlas};
 use font_parser::{CellMetrics, TtfFont};
@@ -250,7 +249,7 @@ impl Screen {
         for index in &self.dirty_cells {
             if let Some(cell) = self.cells.get(*index) {
                 // identify the position inthe ver
-                let gid = self.font.lookup(cell.ch as u32).unwrap();
+                let gid = self.font.lookup(cell.ch as u32).unwrap_or_default();
                 let glyf = self
                     .font
                     .parse_gid(gid as u16)
@@ -306,39 +305,35 @@ impl Screen {
     pub fn write_char(&mut self, ch: char) {
         match ch {
             '\n' => {
-                self.cursor.col = 0;
-                self.cursor.y += 1;
+                self.cursor.y += 0;
             }
             '\r' => {
-                self.cursor.col = 0;
+                self.cursor.col = 1;
             }
             '\x08' => {
                 self.back_cursor(1);
             }
             c if !c.is_control() => {
-                let index = self.cursor.y * self.y_size + self.cursor.col;
+                let index = self.cursor.y * self.col_size + self.cursor.col;
 
                 if index < self.cells.len() {
                     self.cells[index].ch = c;
                     self.dirty_cells.insert(index);
+                    self.advance_cursor(1);
                 }
-
-                self.advance_cursor(1);
             }
 
             _ => {}
         }
     }
-    // advance the cursor by a given amount
-    // will go to a new y if the first y is complete
     pub fn advance_cursor(&mut self, n: usize) {
         for _ in 0..n {
             self.cursor.col += 1;
-            if self.cursor.col >= self.y_size {
+            if self.cursor.col >= self.col_size {
                 self.cursor.col = 0;
                 self.cursor.y += 1;
             }
-            if self.cursor.y * self.y_size >= self.cells.len() {
+            if self.cursor.y * self.col_size >= self.cells.len() {
                 break;
             }
         }
@@ -350,13 +345,12 @@ impl Screen {
                     return;
                 }
                 self.cursor.y -= 1;
-                self.cursor.col = self.y_size - 1;
+                self.cursor.col = self.col_size - 1;
             } else {
                 self.cursor.col -= 1;
             }
 
-            let index = self.cursor.y * self.y_size + self.cursor.col;
-
+            let index = self.cursor.y * self.col_size + self.cursor.col;
             if index < self.cells.len() {
                 self.cells[index].ch = ' ';
                 self.dirty_cells.insert(index);
@@ -364,64 +358,6 @@ impl Screen {
         }
     }
 }
-
-// impl Handler for Screen {
-//     fn cursor_up(&mut self, n: u16) {
-//         self.cursor.y = self.cursor.y.saturating_sub(n as usize);
-//     }
-//     fn cursor_down(&mut self, n: u16) {
-//         let max_y = self.y_size - 1;
-//         self.cursor.y = (self.cursor.y + n as usize).min(max_y);
-//     }
-//     fn cursor_right(&mut self, n: u16) {
-//         let max_col = self.col_size - 1;
-//         self.cursor.col = self.cursor.col.saturating_add(n as usize).min(max_col);
-//     }
-//
-//     fn cursor_left(&mut self, n: u16) {
-//         self.cursor.col = self.cursor.col.saturating_sub(n as usize);
-//     }
-//     fn accumluate_utf8(&mut self, byte: u8) {
-//         if let Some(ch) = self.accumulator.decode(byte) {
-//             self.write_char(ch);
-//         }
-//     }
-//     fn char_attributes(&mut self, params: &smallvec::SmallVec<[u16; 8]>) {}
-//
-//     fn cursor_position(&mut self, new_x: u16, new_y: u16) {}
-//     fn device_status_report(&mut self, param: u16) {}
-//     fn execute(&mut self, ctl_seq: u8) {
-//         match ctl_seq {
-//             // BS - Backspace
-//             0x08 => {
-//                 self.back_cursor(1);
-//             }
-//
-//             // HT - Horizontal tab (commonly tab stops every 8 columns)
-//             0x09 => {
-//                 let tab_stop = 8;
-//                 let next_tab = ((self.cursor.col / tab_stop) + 1) * tab_stop;
-//                 let advance = next_tab.saturating_sub(self.cursor.col);
-//                 self.advance_cursor(advance);
-//             }
-//
-//             // LF - Line Feed
-//             0x0A => {
-//                 self.cursor.col = 0;
-//             }
-//
-//             // CR - Carriage Return
-//             0x0D => {
-//                 self.cursor.y += 1;
-//             }
-//
-//             _ => {}
-//         }
-//     }
-//     fn handle_osc(&mut self, u: &Vec<u8>) {}
-//     fn next_line(&mut self) {}
-//     fn previous_line(&mut self) {}
-// }
 impl Handler for Screen {
     fn cursor_up(&mut self, n: u16) {
         self.cursor.y = self.cursor.y.saturating_sub(n as usize);
@@ -443,50 +379,342 @@ impl Handler for Screen {
             self.write_char(ch);
         }
     }
-
+    fn next_line(&mut self) {}
+    fn handle_osc(&mut self, osc: &Vec<u8>) {}
+    fn previous_line(&mut self) {}
     fn bell(&mut self) {}
-    fn index(&mut self) {}
     fn execute(&mut self, ctl_seq: u8) {
         match ctl_seq {
             0x08 => {
                 self.back_cursor(1);
             }
+            0x0A => {
+                self.cursor.y += 1; // move DOWN
+            }
+            0x0D => {
+                self.cursor.col = 0; // move to column 0
+            }
+            _ => {}
+        }
+        println!(
+            "Position after executing: {:x}, col: {}, y: {}",
+            ctl_seq, self.cursor.col, self.cursor.y
+        )
+    }
+    fn cursor_position(&mut self, row: u16, col: u16) {
+        self.cursor.y = (row as usize).saturating_sub(1).min(self.y_size - 1);
+        self.cursor.col = (col as usize).saturating_sub(1).min(self.col_size - 1);
+    }
+
+    fn cursor_horizontal_absolute(&mut self, col: u16) {
+        self.cursor.col = (col as usize).saturating_sub(1).min(self.col_size - 1);
+    }
+
+    fn cursor_vertical_absolute(&mut self, row: u16) {
+        self.cursor.y = (row as usize).saturating_sub(1).min(self.y_size - 1);
+    }
+
+    fn save_cursor_position(&mut self) {
+        // TODO: Implement cursor position saving (would need additional state)
+        // Example: could store in a (usize, usize) field in Screen struct
+    }
+
+    fn restore_cursor_position(&mut self) {
+        // TODO: Implement cursor position restoration
+    }
+
+    fn erase_display(&mut self, mode: u16) {
+        match mode {
+            0 => {
+                // Erase from cursor to end of display
+                let start_index = self.cursor.y * self.col_size + self.cursor.col;
+                for i in start_index..self.cells.len() {
+                    self.cells[i] = Cell::default();
+                    self.dirty_cells.insert(i);
+                }
+            }
+            1 => {
+                // Erase from start of display to cursor
+                let end_index = self.cursor.y * self.col_size + self.cursor.col + 1;
+                for i in 0..end_index {
+                    self.cells[i] = Cell::default();
+                    self.dirty_cells.insert(i);
+                }
+            }
+            2 | 3 => {
+                // Erase entire display
+                for (i, cell) in self.cells.iter_mut().enumerate() {
+                    *cell = Cell::default();
+                    self.dirty_cells.insert(i);
+                }
+            }
             _ => {}
         }
     }
-    fn set_mode(&mut self, params: &smallvec::SmallVec<[u16; 8]>, private: bool) {}
-    fn next_line(&mut self) {}
-    fn scroll_up(&mut self, n: u16) {}
-    fn erase_line(&mut self, mode: u16) {}
-    fn reset_mode(&mut self, params: &smallvec::SmallVec<[u16; 8]>, private: bool) {}
-    fn soft_reset(&mut self) {}
-    fn window_ops(&mut self, params: &smallvec::SmallVec<[u16; 8]>) {}
-    fn handle_osc(&mut self, osc: &Vec<u8>) {}
-    fn erase_chars(&mut self, n: u16) {}
-    fn scroll_down(&mut self, n: u16) {}
-    fn delete_chars(&mut self, n: u16) {}
-    fn insert_lines(&mut self, n: u16) {}
-    fn delete_lines(&mut self, n: u16) {}
-    fn set_tab_stop(&mut self) {}
-    fn previous_line(&mut self) {}
-    fn erase_display(&mut self, mode: u16) {}
-    fn reverse_index(&mut self) {}
-    fn next_line_esc(&mut self) {}
-    fn clear_tab_stop(&mut self, mode: u16) {}
-    fn cursor_position(&mut self, row: u16, col: u16) {}
-    fn char_attributes(&mut self, params: &smallvec::SmallVec<[u16; 8]>) {}
-    fn set_cursor_style(&mut self, style: u16) {}
-    fn insert_blank_chars(&mut self, n: u16) {}
-    fn cursor_forward_tab(&mut self, n: u16) {}
-    fn cursor_backward_tab(&mut self, n: u16) {}
-    fn save_cursor_position(&mut self) {}
-    fn set_scrolling_region(&mut self, top: u16, bottom: u16) {}
-    fn device_status_report(&mut self, param: u16) {}
-    fn restore_cursor_position(&mut self) {}
-    fn cursor_vertical_absolute(&mut self, row: u16) {}
-    fn primary_device_attributes(&mut self) {}
-    fn cursor_horizontal_absolute(&mut self, col: u16) {}
-    fn secondary_device_attributes(&mut self) {}
-    fn set_keypad_application_mode(&mut self) {}
-    fn unset_keypad_application_mode(&mut self) {}
+
+    fn erase_line(&mut self, mode: u16) {
+        let y_start = self.cursor.y * self.col_size;
+        match mode {
+            0 => {
+                // Erase from cursor to end of line
+                let line_end = y_start + self.col_size;
+                for i in (y_start + self.cursor.col)..line_end {
+                    self.cells[i] = Cell::default();
+                    self.dirty_cells.insert(i);
+                }
+            }
+            1 => {
+                // Erase from start of line to cursor
+                for i in y_start..=(y_start + self.cursor.col) {
+                    self.cells[i] = Cell::default();
+                    self.dirty_cells.insert(i);
+                }
+            }
+            2 => {
+                // Erase entire line
+                let line_end = y_start + self.col_size;
+                for i in y_start..line_end {
+                    self.cells[i] = Cell::default();
+                    self.dirty_cells.insert(i);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn erase_chars(&mut self, n: u16) {
+        let start_index = self.cursor.y * self.col_size + self.cursor.col;
+        let line_end = ((self.cursor.y + 1) * self.col_size).min(self.cells.len());
+        let erase_end = (start_index + n as usize).min(line_end);
+
+        for i in start_index..erase_end {
+            self.cells[i] = Cell::default();
+            self.dirty_cells.insert(i);
+        }
+    }
+
+    fn insert_blank_chars(&mut self, n: u16) {
+        let start_index = self.cursor.y * self.col_size + self.cursor.col;
+        let line_end = ((self.cursor.y + 1) * self.col_size).min(self.cells.len());
+        let insert_count = (n as usize).min(line_end - start_index);
+
+        // Shift characters to the right
+        if start_index + insert_count < line_end {
+            for i in (start_index..line_end - insert_count).rev() {
+                self.cells[i + insert_count] = self.cells[i].clone();
+            }
+        }
+
+        // Fill inserted positions with blanks
+        for i in start_index..(start_index + insert_count) {
+            self.cells[i] = Cell::default();
+            self.dirty_cells.insert(i);
+        }
+    }
+
+    fn delete_chars(&mut self, n: u16) {
+        let start_index = self.cursor.y * self.col_size + self.cursor.col;
+        let line_end = ((self.cursor.y + 1) * self.col_size).min(self.cells.len());
+        let delete_count = (n as usize).min(line_end - start_index);
+
+        // Shift characters to the left
+        for i in start_index..(line_end - delete_count) {
+            self.cells[i] = self.cells[i + delete_count].clone();
+            self.dirty_cells.insert(i);
+        }
+
+        // Fill end of line with blanks
+        for i in (line_end - delete_count)..line_end {
+            self.cells[i] = Cell::default();
+            self.dirty_cells.insert(i);
+        }
+    }
+
+    fn insert_lines(&mut self, n: u16) {
+        let insert_count = (n as usize).min(self.y_size - self.cursor.y);
+        let start_line = self.cursor.y * self.col_size;
+        let shift_start = start_line + insert_count * self.col_size;
+        let total_cells = self.cells.len();
+
+        // Shift lines down
+        if shift_start < total_cells {
+            for i in (start_line..(total_cells - insert_count * self.col_size)).rev() {
+                self.cells[i + insert_count * self.col_size] = self.cells[i].clone();
+            }
+        }
+
+        // Clear inserted lines
+        for i in start_line..shift_start {
+            self.cells[i] = Cell::default();
+            self.dirty_cells.insert(i);
+        }
+    }
+
+    fn delete_lines(&mut self, n: u16) {
+        let delete_count = (n as usize).min(self.y_size - self.cursor.y);
+        let start_line = self.cursor.y * self.col_size;
+        let shift_start = start_line + delete_count * self.col_size;
+        let total_cells = self.cells.len();
+
+        // Shift lines up
+        for i in start_line..(total_cells - delete_count * self.col_size) {
+            self.cells[i] = self.cells[i + delete_count * self.col_size].clone();
+            self.dirty_cells.insert(i);
+        }
+
+        // Clear vacated lines at bottom
+        for i in (total_cells - delete_count * self.col_size)..total_cells {
+            self.cells[i] = Cell::default();
+            self.dirty_cells.insert(i);
+        }
+    }
+
+    fn scroll_up(&mut self, n: u16) {
+        let scroll_count = (n as usize).min(self.y_size);
+        let scroll_cells = scroll_count * self.col_size;
+
+        // Shift all content up
+        for i in 0..(self.cells.len() - scroll_cells) {
+            self.cells[i] = self.cells[i + scroll_cells].clone();
+            self.dirty_cells.insert(i);
+        }
+
+        // Clear bottom lines
+        for i in (self.cells.len() - scroll_cells)..self.cells.len() {
+            self.cells[i] = Cell::default();
+            self.dirty_cells.insert(i);
+        }
+    }
+
+    fn scroll_down(&mut self, n: u16) {
+        let scroll_count = (n as usize).min(self.y_size);
+        let scroll_cells = scroll_count * self.col_size;
+        let total_cells = self.cells.len();
+
+        // Shift all content down
+        for i in (scroll_cells..total_cells).rev() {
+            self.cells[i] = self.cells[i - scroll_cells].clone();
+            self.dirty_cells.insert(i);
+        }
+
+        // Clear top lines
+        for i in 0..scroll_cells {
+            self.cells[i] = Cell::default();
+            self.dirty_cells.insert(i);
+        }
+    }
+
+    fn set_scrolling_region(&mut self, _top: u16, _bottom: u16) {
+        // TODO: Implement scrolling region (would need additional state)
+        // When implemented, would store top/bottom margins and constrain scroll operations
+    }
+
+    fn char_attributes(&mut self, _params: &smallvec::SmallVec<[u16; 8]>) {
+        // TODO: Implement character attributes (colors, bold, italic, underline, etc.)
+        // Would update cell_attr field in current cells being written
+    }
+
+    fn set_tab_stop(&mut self) {
+        // TODO: Implement tab stop tracking
+        // Could use a HashSet<usize> to store column positions with tab stops
+    }
+
+    fn clear_tab_stop(&mut self, _mode: u16) {
+        // TODO: Implement tab stop clearing
+        // mode 0 = clear at current column, mode 3 = clear all
+    }
+
+    fn cursor_forward_tab(&mut self, _n: u16) {
+        // TODO: Implement forward tabulation
+        // Jump to next n tab stops (default to column 8, 16, 24, etc.)
+    }
+
+    fn cursor_backward_tab(&mut self, _n: u16) {
+        // TODO: Implement backward tabulation
+        // Jump back n tab stops
+    }
+
+    fn set_mode(&mut self, _params: &smallvec::SmallVec<[u16; 8]>, _private: bool) {
+        // TODO: Implement mode setting
+        // Common modes: 4 (IRM - insert/replace), 25 (DECTCEM - cursor visible)
+    }
+
+    fn reset_mode(&mut self, _params: &smallvec::SmallVec<[u16; 8]>, _private: bool) {
+        // TODO: Implement mode resetting
+    }
+
+    fn primary_device_attributes(&mut self) {
+        // TODO: Implement primary device attributes response
+        // Should send back a response indicating terminal type
+    }
+
+    fn secondary_device_attributes(&mut self) {
+        // TODO: Implement secondary device attributes response
+    }
+
+    fn device_status_report(&mut self, _param: u16) {
+        // TODO: Implement device status report
+        // param 5 = operational status, param 6 = cursor position
+    }
+
+    fn soft_reset(&mut self) {
+        // Reset cursor and clear display
+        self.cursor = Cursor::default();
+        for (i, cell) in self.cells.iter_mut().enumerate() {
+            *cell = Cell::default();
+            self.dirty_cells.insert(i);
+        }
+    }
+
+    fn set_cursor_style(&mut self, _style: u16) {
+        // TODO: Implement cursor style setting
+        // Styles: 0/1=blinking block, 2=steady block, 3=blinking underline, etc.
+        // Would update cursor.blinking field
+    }
+
+    fn window_ops(&mut self, _params: &smallvec::SmallVec<[u16; 8]>) {
+        // TODO: Implement window operations
+        // Could handle window resize, minimization, maximization requests
+    }
+
+    fn index(&mut self) {
+        // IND – move cursor down, scroll up if at bottom
+        if self.cursor.y < self.y_size - 1 {
+            self.cursor.y += 1;
+        } else {
+            self.scroll_up(1);
+        }
+    }
+
+    fn reverse_index(&mut self) {
+        // RI – move cursor up, scroll down if at top
+        if self.cursor.y > 0 {
+            self.cursor.y -= 1;
+        } else {
+            self.scroll_down(1);
+        }
+    }
+
+    fn next_line_esc(&mut self) {
+        // NEL – move to next line and column 0
+        if self.cursor.y < self.y_size - 1 {
+            self.cursor.y += 1;
+        } else {
+            self.scroll_up(1);
+        }
+        self.cursor.col = 0;
+    }
+
+    fn set_keypad_application_mode(&mut self) {
+        // TODO: Implement keypad application mode
+        // Would set a flag to indicate keypad sends application codes
+    }
+
+    fn unset_keypad_application_mode(&mut self) {
+        // TODO: Implement keypad normal mode
+    }
+
+    fn csi(&mut self) {
+        // Optional default implementation
+    }
 }

@@ -11,6 +11,8 @@ pub fn create_shader_module(device: &Device, code: &[u32]) -> vk::ShaderModule {
     let create_info = vk::ShaderModuleCreateInfo::default().code(code);
     unsafe { device.create_shader_module(&create_info, None).unwrap() }
 }
+///Write another shader dedicated to rendering the cells of the terminal. Required for setting bg.
+///Fg is handled by the Cell renderer.
 #[derive(Clone, Copy, Debug)]
 #[repr(C)]
 pub struct Vertex {

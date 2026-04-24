@@ -1,20 +1,12 @@
-use std::{
-    collections::{HashMap, HashSet},
-    fmt::Debug,
-    hash::Hash,
-    time::Instant,
-};
+use std::{collections::HashSet, time::Instant};
 
 use atlas_gen::{
-    allocator::{AtlasAllocator, ShelfAllocator},
-    atlas::Atlas,
-    cont_comb::SimpleContourCombiner,
-    edge_coloring::edge_coloring_simple,
-    edge_select::MultiDistanceSelector,
+    allocator::ShelfAllocator, atlas::Atlas, cont_comb::SimpleContourCombiner,
+    edge_coloring::edge_coloring_simple, edge_select::MultiDistanceSelector,
     shape_distance_finder::ShapeDistanceFinder,
 };
 use font_parser::TtfFont;
-use image::{ImageBuffer, Pixel, Rgb};
+use image::{ImageBuffer, Rgb};
 use libc::winsize;
 use math::lalg::Vec2;
 use winit::{
@@ -22,14 +14,14 @@ use winit::{
     dpi::{LogicalSize, PhysicalSize},
     event::{DeviceEvent, ElementState, WindowEvent},
     keyboard::{KeyCode, PhysicalKey},
-    window::{Window, WindowAttributes},
+    window::Window,
 };
 
 use crate::{
-    ansii::{Handler, Parser, details::Attributes, utf_decoder::Utf8Decoder},
+    ansii::Parser,
     renderer::{shader::Vertex, vkapp::VkApplication},
     screen::Screen,
-    shell::{MarkerMatcher, Pty},
+    shell::Pty,
 };
 // In seconds
 
@@ -70,9 +62,10 @@ impl Application {
             let n = self.pty.read(&mut buf).unwrap();
             // Read writes into said buffer
             if n != 0 {
+                println!("recieved input: {}", String::from_utf8_lossy(&buf));
                 // Checks for if there are bytes to consume
-                for byte in buf {
-                    self.parser.consume(byte, screen);
+                for byte in &buf[..n] {
+                    self.parser.consume(*byte, screen);
                 }
             }
         }
@@ -265,10 +258,6 @@ impl ApplicationHandler for Application {
                         ElementState::Pressed => {
                             if let Some(text) = &event.text {
                                 self.input_buffer.push_str(text);
-                            }
-                            match key {
-                                KeyCode::Enter => {}
-                                _ => {}
                             }
                             // When a user is holding a key it still generates a Pressed event
                             if !event.repeat {
